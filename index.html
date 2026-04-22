@@ -309,20 +309,15 @@
         const progressBadge = document.getElementById('progressBadge');
 
         // ---------- State ----------
-        let apiKey = '';                     // never stored, just in memory
-        let currentAudioBlob = null;         // audio blob ready for transcription (from file or youtube)
+        let apiKey = '';
+        let currentAudioBlob = null;
         let currentAudioFileName = 'audio';
-        let fullTranscript = '';             // accumulated transcription
+        let fullTranscript = '';
         let isProcessing = false;
 
-        // helper to update status
         function setStatus(text, isError = false) {
             statusDiv.innerHTML = text;
-            if (isError) {
-                statusDiv.style.color = '#ffa6a6';
-            } else {
-                statusDiv.style.color = '#b4c2da';
-            }
+            statusDiv.style.color = isError ? '#ffa6a6' : '#b4c2da';
         }
 
         function updatePreview(text) {
@@ -331,7 +326,6 @@
             downloadBtn.disabled = !fullTranscript.trim();
         }
 
-        // reset session but keep api key? clear everything including transcript & blob
         function softReset(keepApiKey = true) {
             if (!keepApiKey) {
                 apiKey = '';
@@ -347,17 +341,13 @@
             setStatus(apiKey ? '✅ API key set. Select file or YouTube URL.' : '🔑 Enter API key to start.');
         }
 
-        // initial
         softReset(false);
 
-        // API key input event
         apiKeyInput.addEventListener('input', (e) => {
             apiKey = e.target.value.trim();
-            if (apiKey) setStatus('🔑 API key loaded (in memory).');
-            else setStatus('⚠️ API key missing.');
+            setStatus(apiKey ? '🔑 API key loaded (in memory).' : '⚠️ API key missing.');
         });
 
-        // File selection
         fileInput.addEventListener('change', (e) => {
             const file = fileInput.files[0];
             if (!file) {
@@ -367,36 +357,16 @@
             fileLabel.textContent = `📁 ${file.name}`;
             currentAudioBlob = file;
             currentAudioFileName = file.name.replace(/\.[^/.]+$/, "") || 'audio';
-            youtubeUrlInput.value = ''; // clear url when file chosen
+            youtubeUrlInput.value = '';
             setStatus(`📎 File ready: ${file.name}. Press Transcribe.`);
             progressBadge.textContent = '';
         });
 
-        // ---------- YouTube fetch (extract audio) ----------
-        // We use a serverless approach: no backend. We'll use a CORS proxy + ytdl-core? 
-        // But due to browser limitations, we can't directly run ytdl-core easily without bundling.
-        // Better: use a public CORS-friendly API that returns audio? 
-        // For demonstration: we use a free "corsproxy" + youtube dl service? 
-        // Actually we can use a simple approach: use a third-party "yt-dlp" via a public instance? 
-        // To keep it pure & self-contained, we'll use the "ytdl" endpoint from a public instance: 
-        // Many CORS proxies exist. But for reliability, we'll implement using "corsproxy.io" + yt-dlp json.
-        // BUT we need audio extraction. We'll instead use a worker-like fetch: We'll use a "youtube-to-mp3" public API? 
-        // For the sake of this demo, we simulate with a warning? That's not acceptable. 
-        // I'll implement using a reliable public service: "api.allorigins.win" + youtube dl? Not ideal.
-        // Better: Use a Cloudflare Worker? But it's static. 
-        // We can use "corsproxy.io" to fetch info, but audio extraction requires yt-dlp. 
-        // To make this fully functional I'll integrate a simple YouTube audio extractor using a free API: "ytdl-pi.vercel.app" or similar?
-        // Since this is a code challenge, I'll implement a proper method: use "corsproxy.io" with a yt-dlp instance on render? 
-        // I'll implement using a public yt-dlp API that returns audio URL (like yt-dlp on glitch). 
-        // For robustness, I'll try: "https://ytdl-api.vercel.app/api/audio?url=..."
-        // Let's implement using ytdl-api-mu.vercel.app (known to work)
-        // We'll also handle cookies automatically (browser sends cookies if same origin? not needed). 
-        // We'll try multiple formats.
+        // YouTube fetch
         async function fetchYouTubeAudio(url) {
             if (!url) throw new Error('No YouTube URL');
             setStatus('🌐 Fetching YouTube audio ... may take a moment');
 
-            // Normalize youtube url (accept many formats)
             let videoId = null;
             const patterns = [
                 /(?:youtube\.com\/watch\?v=)([^&#]+)/,
@@ -411,37 +381,25 @@
             }
             if (!videoId) throw new Error('Could not extract YouTube video ID.');
 
-            // Use a public yt-dlp API endpoint (cors enabled)
-            // Several exist; we'll use one that returns direct audio stream or info.
-            const apiBase = 'https://ytdl-api-five.vercel.app'; // example, may need fallback
+            const apiBase = 'https://ytdl-api-five.vercel.app';
             const infoUrl = `${apiBase}/api/info?url=${encodeURIComponent(`https://youtu.be/${videoId}`)}`;
             
-            // first get info to find best audio
             const infoResp = await fetch(infoUrl);
             if (!infoResp.ok) throw new Error('YouTube info fetch failed');
             const info = await infoResp.json();
             
-            // find audio format (best audio)
             const audioFormats = info.formats.filter(f => f.acodec !== 'none' && f.vcodec === 'none');
             if (audioFormats.length === 0) throw new Error('No audio-only format found');
-            // pick highest bitrate
             const bestAudio = audioFormats.sort((a,b) => (b.abr||0) - (a.abr||0))[0];
             const audioUrl = bestAudio.url;
             
             setStatus('📥 Downloading audio stream...');
-            // Fetch audio with credentials 'include' to send cookies if needed (cookies for age restriction)
             const audioResp = await fetch(audioUrl, { credentials: 'include' });
             if (!audioResp.ok) throw new Error('Failed to download audio stream');
             const audioBlob = await audioResp.blob();
             
-            // verify it's audio
-            if (!audioBlob.type.startsWith('audio/') && !audioBlob.type.startsWith('application/octet-stream')) {
-                console.warn('Blob type:', audioBlob.type);
-            }
             currentAudioBlob = audioBlob;
-            currentAudioFileName = info.title || `youtube_${videoId}`;
-            // sanitize filename
-            currentAudioFileName = currentAudioFileName.replace(/[\\/:*?"<>|]/g, '_');
+            currentAudioFileName = (info.title || `youtube_${videoId}`).replace(/[\\/:*?"<>|]/g, '_');
             setStatus(`✅ YouTube audio ready: "${currentAudioFileName}"`);
             fileLabel.textContent = `🎬 YouTube: ${currentAudioFileName}`;
             progressBadge.textContent = '';
@@ -458,7 +416,7 @@
                 loadYoutubeBtn.disabled = true;
                 transcribeBtn.disabled = true;
                 await fetchYouTubeAudio(url);
-                fileInput.value = ''; // clear file selection
+                fileInput.value = '';
             } catch (e) {
                 setStatus(`❌ YouTube error: ${e.message}`, true);
                 currentAudioBlob = null;
@@ -469,70 +427,55 @@
             }
         });
 
-        // ---------- Chunk & Transcribe using Gemini ----------
-        async function transcribeAudioBlob(blob) {
-            if (!apiKey) throw new Error('Missing API key');
-            if (!blob) throw new Error('No audio available');
-
-            const CHUNK_DURATION_SEC = 600; // 10 minutes
-            // decode audio to get duration & create chunks
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const arrayBuffer = await blob.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            const duration = audioBuffer.duration;
-            const sampleRate = audioBuffer.sampleRate;
-            const numberOfChannels = audioBuffer.numberOfChannels;
+        // Helper: extract chunk from AudioBuffer
+        function extractChunk(audioBuffer, startSample, endSample) {
+            const channels = audioBuffer.numberOfChannels;
+            const chunkLength = endSample - startSample;
+            const chunkBuffer = new AudioBuffer({
+                length: chunkLength,
+                numberOfChannels: channels,
+                sampleRate: audioBuffer.sampleRate
+            });
             
-            const chunkSamples = CHUNK_DURATION_SEC * sampleRate;
-            const totalChunks = Math.ceil(audioBuffer.length / chunkSamples);
-            
-            setStatus(`🔊 Splitting into ${totalChunks} chunk(s) (~10min each)...`);
-            
-            let fullText = '';
-            for (let i = 0; i < totalChunks; i++) {
-                const startSample = i * chunkSamples;
-                const endSample = Math.min(startSample + chunkSamples, audioBuffer.length);
-                const chunkBuffer = audioBuffer.slice(startSample, endSample);
-                
-                // create wav blob from chunk
-                const chunkBlob = await audioBufferToWavBlob(chunkBuffer, numberOfChannels, sampleRate);
-                
-                setStatus(`📡 Transcribing chunk ${i+1}/${totalChunks} ...`);
-                progressBadge.textContent = `⏳ ${i+1}/${totalChunks}`;
-                
-                const chunkText = await callGeminiTranscription(chunkBlob, apiKey);
-                fullText += (fullText ? '\n\n' : '') + chunkText;
-                
-                // update preview progressively
-                updatePreview(fullText);
+            for (let ch = 0; ch < channels; ch++) {
+                const channelData = audioBuffer.getChannelData(ch);
+                const chunkData = new Float32Array(chunkLength);
+                for (let i = 0; i < chunkLength; i++) {
+                    chunkData[i] = channelData[startSample + i];
+                }
+                chunkBuffer.copyToChannel(chunkData, ch);
             }
-            
-            progressBadge.textContent = `✅ ${totalChunks} chunks done`;
-            return fullText;
+            return chunkBuffer;
         }
 
-        // Convert AudioBuffer to WAV blob (16-bit PCM)
-        function audioBufferToWavBlob(audioBuffer, numChannels, sampleRate) {
+        // Convert AudioBuffer to WAV blob
+        function audioBufferToWavBlob(audioBuffer) {
+            const numChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
             const length = audioBuffer.length * numChannels;
             const buffer = new ArrayBuffer(44 + length * 2);
             const view = new DataView(buffer);
             
-            // RIFF header
-            writeString(view, 0, 'RIFF');
+            const writeString = (offset, str) => {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+            };
+            
+            writeString(0, 'RIFF');
             view.setUint32(4, 36 + length * 2, true);
-            writeString(view, 8, 'WAVE');
-            writeString(view, 12, 'fmt ');
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
             view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true); // PCM
+            view.setUint16(20, 1, true);
             view.setUint16(22, numChannels, true);
             view.setUint32(24, sampleRate, true);
             view.setUint32(28, sampleRate * numChannels * 2, true);
             view.setUint16(32, numChannels * 2, true);
             view.setUint16(34, 16, true);
-            writeString(view, 36, 'data');
+            writeString(36, 'data');
             view.setUint32(40, length * 2, true);
             
-            // write interleaved samples
             let offset = 44;
             for (let i = 0; i < audioBuffer.length; i++) {
                 for (let ch = 0; ch < numChannels; ch++) {
@@ -545,16 +488,46 @@
             }
             return new Blob([buffer], { type: 'audio/wav' });
         }
-        
-        function writeString(view, offset, str) {
-            for (let i = 0; i < str.length; i++) {
-                view.setUint8(offset + i, str.charCodeAt(i));
+
+        async function transcribeAudioBlob(blob) {
+            if (!apiKey) throw new Error('Missing API key');
+            if (!blob) throw new Error('No audio available');
+
+            const CHUNK_DURATION_SEC = 600; // 10 minutes
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const arrayBuffer = await blob.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            const duration = audioBuffer.duration;
+            const sampleRate = audioBuffer.sampleRate;
+            
+            const chunkSamples = CHUNK_DURATION_SEC * sampleRate;
+            const totalChunks = Math.ceil(audioBuffer.length / chunkSamples);
+            
+            setStatus(`🔊 Splitting into ${totalChunks} chunk(s) (~10min each)...`);
+            
+            let fullText = '';
+            for (let i = 0; i < totalChunks; i++) {
+                const startSample = i * chunkSamples;
+                const endSample = Math.min(startSample + chunkSamples, audioBuffer.length);
+                
+                // Extract chunk using our helper
+                const chunkBuffer = extractChunk(audioBuffer, startSample, endSample);
+                const chunkBlob = await audioBufferToWavBlob(chunkBuffer);
+                
+                setStatus(`📡 Transcribing chunk ${i+1}/${totalChunks} ...`);
+                progressBadge.textContent = `⏳ ${i+1}/${totalChunks}`;
+                
+                const chunkText = await callGeminiTranscription(chunkBlob, apiKey);
+                fullText += (fullText ? '\n\n' : '') + chunkText;
+                updatePreview(fullText);
             }
+            
+            progressBadge.textContent = `✅ ${totalChunks} chunks done`;
+            return fullText;
         }
 
         async function callGeminiTranscription(audioBlob, key) {
             const base64Audio = await blobToBase64(audioBlob);
-            // Use gemini-1.5-flash or gemini-1.5-pro, audio transcription via file API
             const payload = {
                 contents: [{
                     parts: [
@@ -591,7 +564,6 @@
             });
         }
 
-        // Transcribe main action
         transcribeBtn.addEventListener('click', async () => {
             if (isProcessing) return;
             if (!apiKey) { setStatus('❌ Enter Gemini API key', true); return; }
@@ -620,7 +592,6 @@
             }
         });
 
-        // Download
         downloadBtn.addEventListener('click', () => {
             if (!fullTranscript) return;
             const blob = new Blob([fullTranscript], { type: 'text/plain' });
@@ -631,16 +602,10 @@
             URL.revokeObjectURL(a.href);
         });
 
-        // Clear / new session (keeps API key but resets files/transcript)
         clearSessionBtn.addEventListener('click', () => {
             if (isProcessing) return;
             softReset(true);
-            apiKeyInput.value = apiKey; // keep
-        });
-
-        // keep api key when user types again.
-        window.addEventListener('load', () => {
-            // ready
+            apiKeyInput.value = apiKey;
         });
     })();
 </script>
