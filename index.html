@@ -235,6 +235,13 @@
             border-top: 1px solid #26303e;
             margin: 16px 0;
         }
+        .warning-badge {
+            background: #3a2a1a;
+            color: #ffb870;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -288,7 +295,10 @@
         <button class="secondary-btn" id="downloadBtn" disabled>⬇️ Download transcript (.txt)</button>
     </div>
     <hr>
-    <div class="note">✅ Accepts mp3, mp4, m4a, many formats · YouTube cookies used if available · Audio split into ~10min chunks.</div>
+    <div class="note">
+        ✅ Accepts mp3, mp4, m4a, many formats · Audio split into ~10min chunks<br>
+        <span class="warning-badge">⚠️ YouTube: If "unusual traffic" appears, try again later or use a local file</span>
+    </div>
 </div>
 
 <script type="module">
@@ -362,10 +372,10 @@
             progressBadge.textContent = '';
         });
 
-        // YouTube fetch
+        // YouTube fetch with multiple fallback methods
         async function fetchYouTubeAudio(url) {
             if (!url) throw new Error('No YouTube URL');
-            setStatus('🌐 Fetching YouTube audio ... may take a moment');
+            setStatus('🌐 Fetching YouTube audio...');
 
             let videoId = null;
             const patterns = [
@@ -381,29 +391,106 @@
             }
             if (!videoId) throw new Error('Could not extract YouTube video ID.');
 
-            const apiBase = 'https://ytdl-api-five.vercel.app';
-            const infoUrl = `${apiBase}/api/info?url=${encodeURIComponent(`https://youtu.be/${videoId}`)}`;
+            // Try multiple API endpoints with delays to avoid rate limiting
+            const apiEndpoints = [
+                {
+                    name: 'Primary',
+                    infoUrl: (vid) => `https://ytdl-api-five.vercel.app/api/info?url=${encodeURIComponent(`https://youtu.be/${vid}`)}`,
+                    headers: {}
+                },
+                {
+                    name: 'Fallback 1',
+                    infoUrl: (vid) => `https://yt-dl-api.vercel.app/api/info?url=${encodeURIComponent(`https://youtu.be/${vid}`)}`,
+                    headers: {}
+                },
+                {
+                    name: 'Fallback 2',
+                    infoUrl: (vid) => `https://youtube-dl-api.vercel.app/api/info?url=${encodeURIComponent(`https://youtu.be/${vid}`)}`,
+                    headers: {}
+                }
+            ];
+
+            let lastError = null;
             
-            const infoResp = await fetch(infoUrl);
-            if (!infoResp.ok) throw new Error('YouTube info fetch failed');
-            const info = await infoResp.json();
+            for (const endpoint of apiEndpoints) {
+                try {
+                    setStatus(`🔄 Trying ${endpoint.name} endpoint...`);
+                    
+                    // Add small delay between attempts
+                    if (endpoint !== apiEndpoints[0]) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                    
+                    const infoUrl = endpoint.infoUrl(videoId);
+                    const infoResp = await fetch(infoUrl, { 
+                        headers: endpoint.headers,
+                        credentials: 'omit' // Avoid sending cookies that might trigger blocks
+                    });
+                    
+                    if (!infoResp.ok) {
+                        throw new Error(`HTTP ${infoResp.status}`);
+                    }
+                    
+                    const info = await infoResp.json();
+                    
+                    // Find audio format
+                    const audioFormats = info.formats?.filter(f => 
+                        f.acodec !== 'none' && f.vcodec === 'none' && f.url
+                    ) || [];
+                    
+                    if (audioFormats.length === 0) {
+                        throw new Error('No audio format found');
+                    }
+                    
+                    const bestAudio = audioFormats.sort((a,b) => (b.abr||0) - (a.abr||0))[0];
+                    let audioUrl = bestAudio.url;
+                    
+                    // Try to fetch audio with retry logic
+                    setStatus('📥 Downloading audio stream...');
+                    
+                    let audioResp;
+                    let retries = 2;
+                    while (retries > 0) {
+                        try {
+                            audioResp = await fetch(audioUrl, { 
+                                credentials: 'omit',
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                                }
+                            });
+                            if (audioResp.ok) break;
+                        } catch (e) {
+                            console.warn(`Retry ${3-retries}/2 failed`);
+                        }
+                        retries--;
+                        if (retries > 0) await new Promise(r => setTimeout(r, 1500));
+                    }
+                    
+                    if (!audioResp?.ok) {
+                        throw new Error('Failed to download audio');
+                    }
+                    
+                    const audioBlob = await audioResp.blob();
+                    
+                    currentAudioBlob = audioBlob;
+                    currentAudioFileName = (info.title || `youtube_${videoId}`).replace(/[\\/:*?"<>|]/g, '_');
+                    setStatus(`✅ YouTube audio ready: "${currentAudioFileName}"`);
+                    fileLabel.textContent = `🎬 YouTube: ${currentAudioFileName}`;
+                    progressBadge.textContent = '';
+                    return audioBlob;
+                    
+                } catch (e) {
+                    console.warn(`${endpoint.name} failed:`, e);
+                    lastError = e;
+                    continue;
+                }
+            }
             
-            const audioFormats = info.formats.filter(f => f.acodec !== 'none' && f.vcodec === 'none');
-            if (audioFormats.length === 0) throw new Error('No audio-only format found');
-            const bestAudio = audioFormats.sort((a,b) => (b.abr||0) - (a.abr||0))[0];
-            const audioUrl = bestAudio.url;
-            
-            setStatus('📥 Downloading audio stream...');
-            const audioResp = await fetch(audioUrl, { credentials: 'include' });
-            if (!audioResp.ok) throw new Error('Failed to download audio stream');
-            const audioBlob = await audioResp.blob();
-            
-            currentAudioBlob = audioBlob;
-            currentAudioFileName = (info.title || `youtube_${videoId}`).replace(/[\\/:*?"<>|]/g, '_');
-            setStatus(`✅ YouTube audio ready: "${currentAudioFileName}"`);
-            fileLabel.textContent = `🎬 YouTube: ${currentAudioFileName}`;
-            progressBadge.textContent = '';
-            return audioBlob;
+            // If all endpoints fail, provide helpful message
+            throw new Error(
+                'All YouTube endpoints failed. This might be due to rate limiting. ' +
+                'Try again later or download the audio manually and use file upload.'
+            );
         }
 
         loadYoutubeBtn.addEventListener('click', async () => {
@@ -497,7 +584,6 @@
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const arrayBuffer = await blob.arrayBuffer();
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            const duration = audioBuffer.duration;
             const sampleRate = audioBuffer.sampleRate;
             
             const chunkSamples = CHUNK_DURATION_SEC * sampleRate;
@@ -510,7 +596,6 @@
                 const startSample = i * chunkSamples;
                 const endSample = Math.min(startSample + chunkSamples, audioBuffer.length);
                 
-                // Extract chunk using our helper
                 const chunkBuffer = extractChunk(audioBuffer, startSample, endSample);
                 const chunkBlob = await audioBufferToWavBlob(chunkBuffer);
                 
