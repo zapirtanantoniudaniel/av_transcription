@@ -242,6 +242,11 @@
             border-radius: 20px;
             font-size: 0.8rem;
         }
+        .url-examples {
+            font-size: 0.75rem;
+            color: #6a7f9b;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
@@ -265,7 +270,10 @@
             <label for="fileInput" class="file-label" id="fileLabel">📁 Choose audio/video file</label>
         </div>
         <div class="url-input-wrapper">
-            <input type="text" id="youtubeUrl" placeholder="Paste YouTube URL (any format)" value="">
+            <div style="flex:1;">
+                <input type="text" id="youtubeUrl" placeholder="Paste YouTube URL" value="">
+                <div class="url-examples">Supports: youtube.com, youtu.be, m.youtube.com, youtube.com/shorts, & more</div>
+            </div>
             <button class="secondary-btn" id="loadYoutubeBtn" title="Fetch and prepare audio from YouTube">⬇️ Fetch</button>
         </div>
     </div>
@@ -372,41 +380,92 @@
             progressBadge.textContent = '';
         });
 
+        // Extract YouTube video ID from ANY URL format
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            
+            // Clean the URL first
+            url = url.trim();
+            
+            // Comprehensive patterns for all YouTube URL formats
+            const patterns = [
+                // Standard watch URLs (including mobile)
+                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/watch\?(?:[^&]*&)*v=([^&#]+)/i,
+                // Short youtu.be URLs
+                /(?:https?:\/\/)?youtu\.be\/([^?&#]+)/i,
+                // Embed URLs
+                /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([^/?&#]+)/i,
+                // v/ URLs
+                /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([^/?&#]+)/i,
+                // Shorts URLs (mobile and desktop)
+                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/shorts\/([^/?&#]+)/i,
+                // Mobile app share URLs
+                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/.*[?&]v=([^&#]+)/i,
+                // Live URLs
+                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/live\/([^/?&#]+)/i,
+                // Attribution links
+                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/attribution_link\?.*[?&]v=([^&#]+)/i,
+                // Just the video ID (11 characters)
+                /^([a-zA-Z0-9_-]{11})$/i
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match && match[1]) {
+                    const id = match[1];
+                    // Validate ID format (11 chars, alphanumeric + -_)
+                    if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+                        return id;
+                    }
+                }
+            }
+            
+            // Try to extract from any URL containing v= parameter
+            const vParam = url.match(/[?&]v=([^&#]+)/i);
+            if (vParam && vParam[1]) {
+                const id = vParam[1];
+                if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+                    return id;
+                }
+            }
+            
+            return null;
+        }
+
         // YouTube fetch with multiple fallback methods
         async function fetchYouTubeAudio(url) {
             if (!url) throw new Error('No YouTube URL');
             setStatus('🌐 Fetching YouTube audio...');
 
-            let videoId = null;
-            const patterns = [
-                /(?:youtube\.com\/watch\?v=)([^&#]+)/,
-                /(?:youtu\.be\/)([^?&#]+)/,
-                /(?:youtube\.com\/embed\/)([^/?]+)/,
-                /(?:youtube\.com\/v\/)([^/?]+)/,
-                /(?:youtube\.com\/shorts\/)([^/?]+)/
-            ];
-            for (let p of patterns) {
-                const match = url.match(p);
-                if (match) { videoId = match[1]; break; }
+            const videoId = extractYouTubeId(url);
+            if (!videoId) {
+                throw new Error('Could not extract YouTube video ID. Please check the URL format.');
             }
-            if (!videoId) throw new Error('Could not extract YouTube video ID.');
+            
+            console.log('Extracted video ID:', videoId);
+            setStatus(`📋 Video ID: ${videoId}. Fetching info...`);
 
             // Try multiple API endpoints with delays to avoid rate limiting
             const apiEndpoints = [
                 {
                     name: 'Primary',
-                    infoUrl: (vid) => `https://ytdl-api-five.vercel.app/api/info?url=${encodeURIComponent(`https://youtu.be/${vid}`)}`,
-                    headers: {}
+                    baseUrl: 'https://ytdl-api-five.vercel.app',
+                    infoPath: '/api/info',
                 },
                 {
                     name: 'Fallback 1',
-                    infoUrl: (vid) => `https://yt-dl-api.vercel.app/api/info?url=${encodeURIComponent(`https://youtu.be/${vid}`)}`,
-                    headers: {}
+                    baseUrl: 'https://yt-dl-api.vercel.app',
+                    infoPath: '/api/info',
                 },
                 {
                     name: 'Fallback 2',
-                    infoUrl: (vid) => `https://youtube-dl-api.vercel.app/api/info?url=${encodeURIComponent(`https://youtu.be/${vid}`)}`,
-                    headers: {}
+                    baseUrl: 'https://youtube-dl-api.vercel.app',
+                    infoPath: '/api/info',
+                },
+                {
+                    name: 'Fallback 3',
+                    baseUrl: 'https://ytdlp-api.vercel.app',
+                    infoPath: '/api/info',
                 }
             ];
 
@@ -416,15 +475,18 @@
                 try {
                     setStatus(`🔄 Trying ${endpoint.name} endpoint...`);
                     
-                    // Add small delay between attempts
+                    // Add delay between attempts
                     if (endpoint !== apiEndpoints[0]) {
                         await new Promise(resolve => setTimeout(resolve, 2000));
                     }
                     
-                    const infoUrl = endpoint.infoUrl(videoId);
+                    const infoUrl = `${endpoint.baseUrl}${endpoint.infoPath}?url=${encodeURIComponent(`https://youtube.com/watch?v=${videoId}`)}`;
+                    
                     const infoResp = await fetch(infoUrl, { 
-                        headers: endpoint.headers,
-                        credentials: 'omit' // Avoid sending cookies that might trigger blocks
+                        credentials: 'omit',
+                        headers: {
+                            'Accept': 'application/json',
+                        }
                     });
                     
                     if (!infoResp.ok) {
@@ -433,19 +495,32 @@
                     
                     const info = await infoResp.json();
                     
+                    // Handle different response structures
+                    let formats = info.formats || info.audioFormats || [];
+                    if (!formats.length && info.url) {
+                        // Single format response
+                        formats = [info];
+                    }
+                    
                     // Find audio format
-                    const audioFormats = info.formats?.filter(f => 
-                        f.acodec !== 'none' && f.vcodec === 'none' && f.url
-                    ) || [];
+                    const audioFormats = formats.filter(f => 
+                        f && (f.acodec !== 'none' || f.format_id?.includes('audio')) && 
+                        f.vcodec === 'none' && f.url
+                    );
                     
                     if (audioFormats.length === 0) {
-                        throw new Error('No audio format found');
+                        // Try to find any format with audio
+                        const anyAudio = formats.find(f => f && f.acodec !== 'none' && f.url);
+                        if (anyAudio) {
+                            audioFormats.push(anyAudio);
+                        } else {
+                            throw new Error('No audio format found');
+                        }
                     }
                     
                     const bestAudio = audioFormats.sort((a,b) => (b.abr||0) - (a.abr||0))[0];
                     let audioUrl = bestAudio.url;
                     
-                    // Try to fetch audio with retry logic
                     setStatus('📥 Downloading audio stream...');
                     
                     let audioResp;
@@ -472,10 +547,14 @@
                     
                     const audioBlob = await audioResp.blob();
                     
+                    // Sanitize filename
+                    let title = info.title || `youtube_${videoId}`;
+                    title = title.replace(/[\\/:*?"<>|]/g, '_').substring(0, 100);
+                    
                     currentAudioBlob = audioBlob;
-                    currentAudioFileName = (info.title || `youtube_${videoId}`).replace(/[\\/:*?"<>|]/g, '_');
-                    setStatus(`✅ YouTube audio ready: "${currentAudioFileName}"`);
-                    fileLabel.textContent = `🎬 YouTube: ${currentAudioFileName}`;
+                    currentAudioFileName = title;
+                    setStatus(`✅ YouTube audio ready: "${title}"`);
+                    fileLabel.textContent = `🎬 YouTube: ${title}`;
                     progressBadge.textContent = '';
                     return audioBlob;
                     
@@ -486,10 +565,13 @@
                 }
             }
             
-            // If all endpoints fail, provide helpful message
+            // Provide helpful error message
             throw new Error(
-                'All YouTube endpoints failed. This might be due to rate limiting. ' +
-                'Try again later or download the audio manually and use file upload.'
+                'Unable to fetch YouTube audio. This may be due to:\n' +
+                '• Rate limiting - try again in a few minutes\n' +
+                '• Video is private/age-restricted\n' +
+                '• Network connectivity issues\n\n' +
+                'Alternative: Download the audio manually and use file upload.'
             );
         }
 
@@ -692,6 +774,9 @@
             softReset(true);
             apiKeyInput.value = apiKey;
         });
+        
+        // Test function for URL extraction (can be called from console)
+        window.testYouTubeId = extractYouTubeId;
     })();
 </script>
 </body>
