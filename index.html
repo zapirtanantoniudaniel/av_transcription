@@ -1,784 +1,620 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Audio/Video Transcription</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-        }
-        body {
-            background: #0b0f15;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 16px;
-            color: #e3e8ef;
-        }
-        .app-container {
-            max-width: 1000px;
-            width: 100%;
-            background: #1a1f2b;
-            border-radius: 28px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-            padding: 28px 24px;
-            border: 1px solid #2e3a48;
-        }
-        h1 {
-            margin-top: 0;
-            margin-bottom: 8px;
-            font-weight: 500;
-            font-size: 2.1rem;
-            letter-spacing: -0.01em;
-            background: linear-gradient(135deg, #b6c8ff, #a0b5ff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .subhead {
-            margin-bottom: 28px;
-            color: #9aa7b9;
-            border-bottom: 1px solid #2e3a48;
-            padding-bottom: 16px;
-        }
-        .api-section {
-            background: #11161e;
-            padding: 18px 20px;
-            border-radius: 20px;
-            margin-bottom: 28px;
-            border: 1px solid #2b3645;
-        }
-        .api-label {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-        .api-label span {
-            font-weight: 500;
-            color: #ccd9f0;
-        }
-        #apiKeyInput {
-            flex: 1;
-            min-width: 260px;
-            background: #0b0f15;
-            border: 1px solid #3f4a5c;
-            border-radius: 40px;
-            padding: 12px 18px;
-            font-size: 1rem;
-            color: white;
-            outline: none;
-            transition: 0.2s;
-            font-family: monospace;
-        }
-        #apiKeyInput:focus {
-            border-color: #7b9cff;
-            box-shadow: 0 0 0 3px rgba(100, 140, 255, 0.2);
-        }
-        #apiKeyInput::placeholder {
-            color: #6f7d91;
-            font-family: system-ui;
-        }
-        .input-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        .file-input-wrapper {
-            flex: 2;
-            min-width: 240px;
-        }
-        .url-input-wrapper {
-            flex: 3;
-            min-width: 280px;
-            display: flex;
-            gap: 8px;
-        }
-        #fileInput {
-            display: none;
-        }
-        .file-label {
-            display: inline-block;
-            background: #262f3c;
-            border: 1px dashed #5b6f89;
-            color: #cddef7;
-            padding: 14px 20px;
-            border-radius: 60px;
-            font-weight: 500;
-            width: 100%;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .file-label:hover {
-            background: #2f3b4b;
-            border-color: #8aa1ff;
-        }
-        #youtubeUrl {
-            flex: 1;
-            background: #0f141c;
-            border: 1px solid #3e4d60;
-            border-radius: 60px;
-            padding: 14px 18px;
-            color: white;
-            font-size: 1rem;
-            outline: none;
-        }
-        #youtubeUrl:focus {
-            border-color: #7b9cff;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-        .primary-btn, .secondary-btn {
-            border: none;
-            border-radius: 60px;
-            padding: 14px 28px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: 0.15s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            background: #2e3f55;
-            color: white;
-            border: 1px solid #4f6682;
-        }
-        .primary-btn {
-            background: #3a5f8b;
-            border-color: #7f9fd5;
-            box-shadow: 0 4px 8px rgba(0,20,50,0.3);
-        }
-        .primary-btn:hover:not(:disabled) {
-            background: #4f7ab3;
-            border-color: #aac2ff;
-        }
-        .secondary-btn:hover:not(:disabled) {
-            background: #405670;
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .status-area {
-            min-height: 40px;
-            padding: 8px 6px;
-            font-size: 0.95rem;
-            color: #b4c2da;
-            display: flex;
-            align-items: center;
-        }
-        .preview-panel {
-            background: #0f151e;
-            border-radius: 20px;
-            padding: 18px 20px;
-            margin: 20px 0 18px;
-            border: 1px solid #2c3849;
-            max-height: 360px;
-            overflow-y: auto;
-        }
-        .preview-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 14px;
-        }
-        .preview-header h3 {
-            margin: 0;
-            font-weight: 400;
-            color: #b7c9e8;
-        }
-        #transcriptPreview {
-            white-space: pre-wrap;
-            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', monospace;
-            font-size: 0.95rem;
-            line-height: 1.5;
-            color: #d6e2fb;
-            background: #080c12;
-            padding: 16px;
-            border-radius: 16px;
-            border: 1px solid #25303e;
-            min-height: 140px;
-        }
-        .download-area {
-            display: flex;
-            justify-content: flex-end;
-        }
-        #downloadBtn {
-            background: #1e3a4d;
-            border: 1px solid #3d7899;
-        }
-        .progress-indicator {
-            color: #aac8ff;
-            margin-left: 12px;
-        }
-        .note {
-            color: #8599b3;
-            font-size: 0.8rem;
-            margin-top: 10px;
-        }
-        hr {
-            border: none;
-            border-top: 1px solid #26303e;
-            margin: 16px 0;
-        }
-        .warning-badge {
-            background: #3a2a1a;
-            color: #ffb870;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-        }
-        .url-examples {
-            font-size: 0.75rem;
-            color: #6a7f9b;
-            margin-top: 4px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini audio/video transcription</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    }
+    body {
+      background: #f5f7fc;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1.5rem;
+    }
+    .app-container {
+      max-width: 900px;
+      width: 100%;
+      background: white;
+      border-radius: 28px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+      padding: 2rem 2rem 2.2rem;
+      transition: all 0.2s;
+    }
+    h1 {
+      font-weight: 600;
+      font-size: 2rem;
+      letter-spacing: -0.01em;
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      color: #1e293b;
+    }
+    .subhead {
+      color: #64748b;
+      margin-bottom: 1.8rem;
+      border-left: 4px solid #3b82f6;
+      padding-left: 1rem;
+      font-weight: 400;
+    }
+    .key-section {
+      background: #f8fafc;
+      border-radius: 18px;
+      padding: 1.4rem 1.6rem;
+      margin-bottom: 2rem;
+      border: 1px solid #e2e8f0;
+    }
+    .key-label {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .key-label span {
+      font-weight: 500;
+      color: #0f172a;
+      min-width: 110px;
+    }
+    .key-input-wrapper {
+      flex: 1;
+      display: flex;
+      gap: 8px;
+    }
+    .key-input-wrapper input {
+      flex: 1;
+      padding: 0.8rem 1rem;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 40px;
+      font-size: 0.95rem;
+      background: white;
+      transition: border 0.15s;
+    }
+    .key-input-wrapper input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    .key-input-wrapper input::placeholder {
+      color: #94a3b8;
+    }
+    .key-status {
+      font-size: 0.85rem;
+      margin-top: 8px;
+      margin-left: 0.3rem;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-block;
+      background: #e2e8f0;
+      padding: 0.2rem 0.7rem;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .badge.ready {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .upload-area {
+      margin-bottom: 1.8rem;
+    }
+    .file-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      background: #ffffff;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 60px;
+      padding: 0.5rem 0.5rem 0.5rem 1.8rem;
+      transition: border 0.2s;
+    }
+    .file-row.drag-active {
+      border-color: #3b82f6;
+      background: #f0f9ff;
+    }
+    .file-info {
+      flex: 2;
+      min-width: 200px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #1e293b;
+      font-weight: 450;
+      overflow: hidden;
+    }
+    .file-info .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-icon {
+      font-size: 1.7rem;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: white;
+      border: 1.5px solid #e2e8f0;
+      padding: 0.7rem 1.5rem;
+      border-radius: 60px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      color: #1e293b;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .btn-primary {
+      background: #1e293b;
+      border-color: #1e293b;
+      color: white;
+      box-shadow: 0 4px 8px rgba(30,41,59,0.15);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #0f172a;
+      border-color: #0f172a;
+    }
+    .btn-outline-blue {
+      border-color: #3b82f6;
+      color: #2563eb;
+      background: #eff6ff;
+    }
+    .btn-outline-blue:hover:not(:disabled) {
+      background: #dbeafe;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .transcribe-btn {
+      padding: 0.9rem 2.2rem;
+      font-size: 1.1rem;
+      margin-top: 8px;
+      width: 100%;
+      justify-content: center;
+    }
+    .status-area {
+      margin: 1.5rem 0 1rem;
+      min-height: 2.2rem;
+      font-size: 0.95rem;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid #cbd5e1;
+      border-top-color: #1e293b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .preview-panel {
+      background: #fafcff;
+      border-radius: 20px;
+      border: 1px solid #e2e8f0;
+      padding: 1.5rem 1.8rem;
+      margin: 1.2rem 0 1.8rem;
+      max-height: 280px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: #0b1e33;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .preview-placeholder {
+      color: #94a3b8;
+      font-style: italic;
+    }
+    .download-section {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .error-message {
+      color: #b91c1c;
+      background: #fee2e2;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      font-size: 0.9rem;
+    }
+    .footnote {
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: #64748b;
+      text-align: right;
+    }
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+  </style>
 </head>
 <body>
 <div class="app-container">
-    <h1>🎙️ Transcribe</h1>
-    <div class="subhead">Gemini · local files · YouTube · chunked processing</div>
+  <h1>🎙️ Transcribe · Gemini</h1>
+  <div class="subhead">Upload audio/video — reuse key for multiple files</div>
 
-    <!-- API Key Section -->
-    <div class="api-section">
-        <div class="api-label">
-            <span>🔑 Gemini API Key</span>
-            <input type="password" id="apiKeyInput" placeholder="Enter your Gemini API key (session only)" autocomplete="off" spellcheck="false">
-        </div>
-        <div class="note">Key stays in memory, never stored. Required once per session.</div>
+  <!-- API key section (in-memory only) -->
+  <div class="key-section">
+    <div class="key-label">
+      <span>🔑 Gemini API key</span>
+      <div class="key-input-wrapper">
+        <input type="password" id="apiKeyInput" placeholder="Enter your Gemini API key" autocomplete="off" spellcheck="false">
+        <button class="btn" id="setKeyBtn" type="button">Set key</button>
+      </div>
     </div>
+    <div id="keyStatus" class="key-status">
+      <span>⏳</span> No key stored in session
+    </div>
+    <div class="footnote" style="margin-top:6px; text-align:left;">Key is kept only in a JavaScript variable — never saved.</div>
+  </div>
 
-    <!-- Input area -->
-    <div class="input-group">
-        <div class="file-input-wrapper">
-            <input type="file" id="fileInput" accept="audio/*,video/*,.mp3,.mp4,.m4a,.wav,.mpeg,.ogg,.webm,.mov,.mkv">
-            <label for="fileInput" class="file-label" id="fileLabel">📁 Choose audio/video file</label>
-        </div>
-        <div class="url-input-wrapper">
-            <div style="flex:1;">
-                <input type="text" id="youtubeUrl" placeholder="Paste YouTube URL" value="">
-                <div class="url-examples">Supports: youtube.com, youtu.be, m.youtube.com, youtube.com/shorts, & more</div>
-            </div>
-            <button class="secondary-btn" id="loadYoutubeBtn" title="Fetch and prepare audio from YouTube">⬇️ Fetch</button>
-        </div>
+  <!-- File upload -->
+  <div class="upload-area">
+    <div class="file-row" id="dropZone">
+      <div class="file-info">
+        <span class="file-icon">📁</span>
+        <span class="file-name" id="fileNameDisplay">No file chosen</span>
+      </div>
+      <div class="btn-group">
+        <input type="file" id="fileInput" accept="audio/*,video/*,.mp3,.mp4,.m4a,.wav,.mpeg,.ogg,.mov,.webm,.flac,.aac" style="display:none;">
+        <button class="btn btn-outline-blue" id="browseBtn">📂 Browse</button>
+        <button class="btn" id="clearFileBtn" title="Clear current file">✕ Clear</button>
+      </div>
     </div>
+    <div style="font-size:0.8rem; margin-top:8px; color:#64748b;">Supports mp3, mp4, m4a, wav, mov, webm, flac, aac …</div>
+  </div>
 
-    <!-- Controls -->
-    <div class="action-buttons">
-        <button class="primary-btn" id="transcribeBtn">✨ Transcribe</button>
-        <button class="secondary-btn" id="clearSessionBtn">🔄 New session (clear)</button>
-    </div>
+  <!-- Transcribe action -->
+  <button class="btn btn-primary transcribe-btn" id="transcribeBtn" disabled>🎤 Transcribe</button>
 
-    <!-- Status -->
-    <div class="status-area" id="statusMessage">
-        ⚡ Ready. Provide API key and source.
-    </div>
+  <!-- Status & progress -->
+  <div id="statusArea" class="status-area"></div>
 
-    <!-- Preview panel -->
-    <div class="preview-panel">
-        <div class="preview-header">
-            <h3>📝 Transcription preview</h3>
-            <span id="progressBadge" class="progress-indicator"></span>
-        </div>
-        <div id="transcriptPreview">Your transcript will appear here…</div>
-    </div>
+  <!-- Transcription preview -->
+  <div style="font-weight:500; margin: 0.8rem 0 0.2rem;">📝 Transcription preview</div>
+  <div id="previewPanel" class="preview-panel">
+    <span class="preview-placeholder">Transcription will appear here…</span>
+  </div>
 
-    <!-- Download -->
-    <div class="download-area">
-        <button class="secondary-btn" id="downloadBtn" disabled>⬇️ Download transcript (.txt)</button>
-    </div>
-    <hr>
-    <div class="note">
-        ✅ Accepts mp3, mp4, m4a, many formats · Audio split into ~10min chunks<br>
-        <span class="warning-badge">⚠️ YouTube: If "unusual traffic" appears, try again later or use a local file</span>
-    </div>
+  <!-- Download button -->
+  <div class="download-section">
+    <button class="btn btn-outline-blue" id="downloadBtn" disabled>⬇️ Download transcript (.txt)</button>
+  </div>
+  <div id="errorMessage" style="min-height:24px; margin-top:8px;"></div>
 </div>
 
 <script type="module">
-    (function(){
-        "use strict";
+  (function(){
+    "use strict";
 
-        // ---------- DOM elements ----------
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const fileInput = document.getElementById('fileInput');
-        const fileLabel = document.getElementById('fileLabel');
-        const youtubeUrlInput = document.getElementById('youtubeUrl');
-        const loadYoutubeBtn = document.getElementById('loadYoutubeBtn');
-        const transcribeBtn = document.getElementById('transcribeBtn');
-        const clearSessionBtn = document.getElementById('clearSessionBtn');
-        const statusDiv = document.getElementById('statusMessage');
-        const transcriptPreview = document.getElementById('transcriptPreview');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const progressBadge = document.getElementById('progressBadge');
+    // ---------- STATE (in-memory only) ----------
+    let apiKey = null;                // never stored except here
+    let currentFile = null;
+    let latestTranscript = '';        // full transcript text
+    let isTranscribing = false;
 
-        // ---------- State ----------
-        let apiKey = '';
-        let currentAudioBlob = null;
-        let currentAudioFileName = 'audio';
-        let fullTranscript = '';
-        let isProcessing = false;
+    // DOM elements
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const setKeyBtn = document.getElementById('setKeyBtn');
+    const keyStatusDiv = document.getElementById('keyStatus');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+    const clearFileBtn = document.getElementById('clearFileBtn');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const transcribeBtn = document.getElementById('transcribeBtn');
+    const statusArea = document.getElementById('statusArea');
+    const previewPanel = document.getElementById('previewPanel');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const errorMsgDiv = document.getElementById('errorMessage');
+    const dropZone = document.getElementById('dropZone');
 
-        function setStatus(text, isError = false) {
-            statusDiv.innerHTML = text;
-            statusDiv.style.color = isError ? '#ffa6a6' : '#b4c2da';
+    // Helper: update UI based on apiKey presence
+    function updateKeyStatusUI() {
+      if (apiKey) {
+        const masked = apiKey.length > 8 ? `${apiKey.slice(0,6)}…${apiKey.slice(-4)}` : '****';
+        keyStatusDiv.innerHTML = `<span>✅</span> Key ready · <code style="background:#eef2ff; padding:2px 6px; border-radius:20px;">${masked}</code> <span class="badge ready">session only</span>`;
+        apiKeyInput.value = ''; // clear input for privacy
+      } else {
+        keyStatusDiv.innerHTML = `<span>⏳</span> No key stored in session`;
+      }
+      updateTranscribeButtonState();
+    }
+
+    // Enable transcribe only if we have both apiKey and a file
+    function updateTranscribeButtonState() {
+      transcribeBtn.disabled = !(apiKey && currentFile && !isTranscribing);
+    }
+
+    // Update file display
+    function updateFileDisplay() {
+      if (currentFile) {
+        fileNameDisplay.textContent = currentFile.name;
+      } else {
+        fileNameDisplay.textContent = 'No file chosen';
+        fileInput.value = ''; // clear input ref
+      }
+      updateTranscribeButtonState();
+    }
+
+    // Show temporary status / error
+    function setStatus(message, isError = false) {
+      statusArea.innerHTML = message;
+      if (isError) {
+        errorMsgDiv.innerHTML = `<span class="error-message">⚠️ ${message}</span>`;
+      } else {
+        errorMsgDiv.innerHTML = '';
+      }
+    }
+
+    function clearStatus() {
+      statusArea.innerHTML = '';
+      errorMsgDiv.innerHTML = '';
+    }
+
+    // Preview panel update
+    function setPreviewText(text) {
+      latestTranscript = text;
+      if (text && text.trim().length > 0) {
+        previewPanel.textContent = text;
+      } else {
+        previewPanel.innerHTML = '<span class="preview-placeholder">Transcription will appear here…</span>';
+      }
+      downloadBtn.disabled = !(text && text.trim().length > 0);
+    }
+
+    // ---------- Key management ----------
+    setKeyBtn.addEventListener('click', () => {
+      const newKey = apiKeyInput.value.trim();
+      if (!newKey) {
+        setStatus('Please enter an API key', true);
+        return;
+      }
+      // Basic validation: Gemini keys typically start with "AI" but not strictly enforced
+      apiKey = newKey;
+      updateKeyStatusUI();
+      clearStatus();
+      // Clear input field after setting
+      apiKeyInput.value = '';
+    });
+
+    // Optionally allow pressing Enter in key field to set key
+    apiKeyInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setKeyBtn.click();
+      }
+    });
+
+    // ---------- File handling ----------
+    browseBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      const file = fileInput.files[0];
+      if (file) {
+        currentFile = file;
+        updateFileDisplay();
+        clearStatus();
+        // Do not clear preview when changing file — but we could; keeping preview until new transcription.
+      } else {
+        currentFile = null;
+        updateFileDisplay();
+      }
+    });
+
+    clearFileBtn.addEventListener('click', () => {
+      currentFile = null;
+      fileInput.value = '';
+      updateFileDisplay();
+      clearStatus();
+      // keep preview? It's okay, but might be unrelated; we could keep it.
+    });
+
+    // Drag & drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+
+    dropZone.addEventListener('dragenter', () => dropZone.classList.add('drag-active'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+    dropZone.addEventListener('drop', (e) => {
+      dropZone.classList.remove('drag-active');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        // Check if it's audio/video (basic)
+        if (file.type.startsWith('audio/') || file.type.startsWith('video/') || /\.(mp3|mp4|m4a|wav|mpeg|ogg|mov|webm|flac|aac)$/i.test(file.name)) {
+          currentFile = file;
+          fileInput.files = files; // sync with input
+          updateFileDisplay();
+          clearStatus();
+        } else {
+          setStatus('Please drop an audio or video file.', true);
         }
+      }
+    });
 
-        function updatePreview(text) {
-            transcriptPreview.textContent = text || 'Transcript empty.';
-            fullTranscript = text || '';
-            downloadBtn.disabled = !fullTranscript.trim();
+    // ---------- Gemini API transcription ----------
+    async function transcribeWithGemini(file, key) {
+      // Base64 encode the file
+      const base64Promise = new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+      const base64Data = await base64Promise;
+      const mimeType = file.type || (file.name.match(/\.(\w+)$/)?.[1] ? `audio/${file.name.split('.').pop()}` : 'audio/mpeg');
+
+      // Build request for Gemini 1.5 Flash (or Pro, both accept audio)
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      
+      const payload = {
+        contents: [{
+          parts: [
+            { text: "Transcribe the following audio/video accurately. Provide only the transcription text, no extra commentary." },
+            { 
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 2048,
         }
+      };
 
-        function softReset(keepApiKey = true) {
-            if (!keepApiKey) {
-                apiKey = '';
-                apiKeyInput.value = '';
-            }
-            currentAudioBlob = null;
-            currentAudioFileName = 'audio';
-            updatePreview('');
-            fileInput.value = '';
-            fileLabel.textContent = '📁 Choose audio/video file';
-            youtubeUrlInput.value = '';
-            progressBadge.textContent = '';
-            setStatus(apiKey ? '✅ API key set. Select file or YouTube URL.' : '🔑 Enter API key to start.');
-        }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-        softReset(false);
+      if (!response.ok) {
+        let errorDetail = `HTTP ${response.status}`;
+        try {
+          const errJson = await response.json();
+          errorDetail = errJson.error?.message || JSON.stringify(errJson);
+        } catch (e) {}
+        throw new Error(`Gemini API error: ${errorDetail}`);
+      }
 
-        apiKeyInput.addEventListener('input', (e) => {
-            apiKey = e.target.value.trim();
-            setStatus(apiKey ? '🔑 API key loaded (in memory).' : '⚠️ API key missing.');
-        });
+      const data = await response.json();
+      // Extract text
+      const candidates = data.candidates;
+      if (!candidates || candidates.length === 0) {
+        throw new Error('No transcription returned');
+      }
+      const parts = candidates[0]?.content?.parts;
+      if (!parts || parts.length === 0) throw new Error('Empty response parts');
+      
+      const transcript = parts.map(p => p.text).join('').trim();
+      return transcript;
+    }
 
-        fileInput.addEventListener('change', (e) => {
-            const file = fileInput.files[0];
-            if (!file) {
-                fileLabel.textContent = '📁 Choose audio/video file';
-                return;
-            }
-            fileLabel.textContent = `📁 ${file.name}`;
-            currentAudioBlob = file;
-            currentAudioFileName = file.name.replace(/\.[^/.]+$/, "") || 'audio';
-            youtubeUrlInput.value = '';
-            setStatus(`📎 File ready: ${file.name}. Press Transcribe.`);
-            progressBadge.textContent = '';
-        });
+    // Transcribe button action
+    transcribeBtn.addEventListener('click', async () => {
+      if (!apiKey || !currentFile) {
+        setStatus('API key and file are required', true);
+        return;
+      }
+      if (isTranscribing) return;
 
-        // Extract YouTube video ID from ANY URL format
-        function extractYouTubeId(url) {
-            if (!url) return null;
-            
-            // Clean the URL first
-            url = url.trim();
-            
-            // Comprehensive patterns for all YouTube URL formats
-            const patterns = [
-                // Standard watch URLs (including mobile)
-                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/watch\?(?:[^&]*&)*v=([^&#]+)/i,
-                // Short youtu.be URLs
-                /(?:https?:\/\/)?youtu\.be\/([^?&#]+)/i,
-                // Embed URLs
-                /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([^/?&#]+)/i,
-                // v/ URLs
-                /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([^/?&#]+)/i,
-                // Shorts URLs (mobile and desktop)
-                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/shorts\/([^/?&#]+)/i,
-                // Mobile app share URLs
-                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/.*[?&]v=([^&#]+)/i,
-                // Live URLs
-                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/live\/([^/?&#]+)/i,
-                // Attribution links
-                /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/attribution_link\?.*[?&]v=([^&#]+)/i,
-                // Just the video ID (11 characters)
-                /^([a-zA-Z0-9_-]{11})$/i
-            ];
-            
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match && match[1]) {
-                    const id = match[1];
-                    // Validate ID format (11 chars, alphanumeric + -_)
-                    if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
-                        return id;
-                    }
-                }
-            }
-            
-            // Try to extract from any URL containing v= parameter
-            const vParam = url.match(/[?&]v=([^&#]+)/i);
-            if (vParam && vParam[1]) {
-                const id = vParam[1];
-                if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
-                    return id;
-                }
-            }
-            
-            return null;
-        }
+      isTranscribing = true;
+      transcribeBtn.disabled = true;
+      downloadBtn.disabled = true; // until new transcript
+      setStatus(`⏳ Transcribing "${currentFile.name}" …`, false);
+      previewPanel.innerHTML = '<span style="opacity:0.7">Transcribing… please wait</span>';
+      
+      try {
+        const transcript = await transcribeWithGemini(currentFile, apiKey);
+        setPreviewText(transcript);
+        setStatus(`✅ Transcription complete (${transcript.length} characters)`, false);
+      } catch (error) {
+        console.error(error);
+        const errorText = error.message || 'Unknown transcription error';
+        setStatus(errorText, true);
+        previewPanel.innerHTML = `<span class="preview-placeholder">⚠️ Transcription failed. ${errorText}</span>`;
+        downloadBtn.disabled = true;
+        latestTranscript = '';
+      } finally {
+        isTranscribing = false;
+        updateTranscribeButtonState(); // re-evaluate
+      }
+    });
 
-        // YouTube fetch with multiple fallback methods
-        async function fetchYouTubeAudio(url) {
-            if (!url) throw new Error('No YouTube URL');
-            setStatus('🌐 Fetching YouTube audio...');
+    // Download transcript as .txt file
+    downloadBtn.addEventListener('click', () => {
+      if (!latestTranscript) {
+        setStatus('No transcript to download', true);
+        return;
+      }
+      const blob = new Blob([latestTranscript], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const baseName = currentFile ? currentFile.name.replace(/\.[^/.]+$/, '') : 'transcript';
+      a.download = `${baseName}_transcript.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
 
-            const videoId = extractYouTubeId(url);
-            if (!videoId) {
-                throw new Error('Could not extract YouTube video ID. Please check the URL format.');
-            }
-            
-            console.log('Extracted video ID:', videoId);
-            setStatus(`📋 Video ID: ${videoId}. Fetching info...`);
+    // Reset on clear or new file: but do not remove transcript preview unless new transcription made.
+    // We'll just keep existing preview – it's okay.
+    // Additional: if user sets new file, keep old preview, but transcribe will overwrite.
+    
+    // initial update
+    updateKeyStatusUI();
+    updateFileDisplay();
+    setPreviewText('');
 
-            // Try multiple API endpoints with delays to avoid rate limiting
-            const apiEndpoints = [
-                {
-                    name: 'Primary',
-                    baseUrl: 'https://ytdl-api-five.vercel.app',
-                    infoPath: '/api/info',
-                },
-                {
-                    name: 'Fallback 1',
-                    baseUrl: 'https://yt-dl-api.vercel.app',
-                    infoPath: '/api/info',
-                },
-                {
-                    name: 'Fallback 2',
-                    baseUrl: 'https://youtube-dl-api.vercel.app',
-                    infoPath: '/api/info',
-                },
-                {
-                    name: 'Fallback 3',
-                    baseUrl: 'https://ytdlp-api.vercel.app',
-                    infoPath: '/api/info',
-                }
-            ];
+    // Ensure transcribe state on window load
+    window.addEventListener('load', () => {
+      updateTranscribeButtonState();
+    });
 
-            let lastError = null;
-            
-            for (const endpoint of apiEndpoints) {
-                try {
-                    setStatus(`🔄 Trying ${endpoint.name} endpoint...`);
-                    
-                    // Add delay between attempts
-                    if (endpoint !== apiEndpoints[0]) {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
-                    
-                    const infoUrl = `${endpoint.baseUrl}${endpoint.infoPath}?url=${encodeURIComponent(`https://youtube.com/watch?v=${videoId}`)}`;
-                    
-                    const infoResp = await fetch(infoUrl, { 
-                        credentials: 'omit',
-                        headers: {
-                            'Accept': 'application/json',
-                        }
-                    });
-                    
-                    if (!infoResp.ok) {
-                        throw new Error(`HTTP ${infoResp.status}`);
-                    }
-                    
-                    const info = await infoResp.json();
-                    
-                    // Handle different response structures
-                    let formats = info.formats || info.audioFormats || [];
-                    if (!formats.length && info.url) {
-                        // Single format response
-                        formats = [info];
-                    }
-                    
-                    // Find audio format
-                    const audioFormats = formats.filter(f => 
-                        f && (f.acodec !== 'none' || f.format_id?.includes('audio')) && 
-                        f.vcodec === 'none' && f.url
-                    );
-                    
-                    if (audioFormats.length === 0) {
-                        // Try to find any format with audio
-                        const anyAudio = formats.find(f => f && f.acodec !== 'none' && f.url);
-                        if (anyAudio) {
-                            audioFormats.push(anyAudio);
-                        } else {
-                            throw new Error('No audio format found');
-                        }
-                    }
-                    
-                    const bestAudio = audioFormats.sort((a,b) => (b.abr||0) - (a.abr||0))[0];
-                    let audioUrl = bestAudio.url;
-                    
-                    setStatus('📥 Downloading audio stream...');
-                    
-                    let audioResp;
-                    let retries = 2;
-                    while (retries > 0) {
-                        try {
-                            audioResp = await fetch(audioUrl, { 
-                                credentials: 'omit',
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                                }
-                            });
-                            if (audioResp.ok) break;
-                        } catch (e) {
-                            console.warn(`Retry ${3-retries}/2 failed`);
-                        }
-                        retries--;
-                        if (retries > 0) await new Promise(r => setTimeout(r, 1500));
-                    }
-                    
-                    if (!audioResp?.ok) {
-                        throw new Error('Failed to download audio');
-                    }
-                    
-                    const audioBlob = await audioResp.blob();
-                    
-                    // Sanitize filename
-                    let title = info.title || `youtube_${videoId}`;
-                    title = title.replace(/[\\/:*?"<>|]/g, '_').substring(0, 100);
-                    
-                    currentAudioBlob = audioBlob;
-                    currentAudioFileName = title;
-                    setStatus(`✅ YouTube audio ready: "${title}"`);
-                    fileLabel.textContent = `🎬 YouTube: ${title}`;
-                    progressBadge.textContent = '';
-                    return audioBlob;
-                    
-                } catch (e) {
-                    console.warn(`${endpoint.name} failed:`, e);
-                    lastError = e;
-                    continue;
-                }
-            }
-            
-            // Provide helpful error message
-            throw new Error(
-                'Unable to fetch YouTube audio. This may be due to:\n' +
-                '• Rate limiting - try again in a few minutes\n' +
-                '• Video is private/age-restricted\n' +
-                '• Network connectivity issues\n\n' +
-                'Alternative: Download the audio manually and use file upload.'
-		+ lastError
-            );
-        }
+    // If user tries to browse and cancels, fileInput change not fired, fine.
+    // Also handle resetting if key changed? Key set is only through 'set key', fine.
+    // Note: The app never shows copyright, no notice.
 
-        loadYoutubeBtn.addEventListener('click', async () => {
-            if (isProcessing) { setStatus('Processing, please wait...', true); return; }
-            const url = youtubeUrlInput.value.trim();
-            if (!url) { setStatus('Paste a YouTube URL first', true); return; }
-            if (!apiKey) { setStatus('Enter API key first', true); return; }
-            try {
-                isProcessing = true;
-                loadYoutubeBtn.disabled = true;
-                transcribeBtn.disabled = true;
-                await fetchYouTubeAudio(url);
-                fileInput.value = '';
-            } catch (e) {
-                setStatus(`❌ YouTube error: ${e.message}`, true);
-                currentAudioBlob = null;
-            } finally {
-                isProcessing = false;
-                loadYoutubeBtn.disabled = false;
-                transcribeBtn.disabled = false;
-            }
-        });
+    // For usability: double-check that the disabled logic works after key set.
+    // If they set key while file already present, button should enable.
+    // Modify updateKeyStatusUI to also update button state.
+    const originalUpdateKeyStatus = updateKeyStatusUI;
+    updateKeyStatusUI = function() {
+      if (apiKey) {
+        const masked = apiKey.length > 8 ? `${apiKey.slice(0,6)}…${apiKey.slice(-4)}` : '****';
+        keyStatusDiv.innerHTML = `<span>✅</span> Key ready · <code style="background:#eef2ff; padding:2px 6px; border-radius:20px;">${masked}</code> <span class="badge ready">session only</span>`;
+      } else {
+        keyStatusDiv.innerHTML = `<span>⏳</span> No key stored in session`;
+      }
+      updateTranscribeButtonState();
+    };
+    // re-bind to keep it updated
+    const temp = updateKeyStatusUI;
+    updateKeyStatusUI = temp;
+    updateKeyStatusUI();
 
-        // Helper: extract chunk from AudioBuffer
-        function extractChunk(audioBuffer, startSample, endSample) {
-            const channels = audioBuffer.numberOfChannels;
-            const chunkLength = endSample - startSample;
-            const chunkBuffer = new AudioBuffer({
-                length: chunkLength,
-                numberOfChannels: channels,
-                sampleRate: audioBuffer.sampleRate
-            });
-            
-            for (let ch = 0; ch < channels; ch++) {
-                const channelData = audioBuffer.getChannelData(ch);
-                const chunkData = new Float32Array(chunkLength);
-                for (let i = 0; i < chunkLength; i++) {
-                    chunkData[i] = channelData[startSample + i];
-                }
-                chunkBuffer.copyToChannel(chunkData, ch);
-            }
-            return chunkBuffer;
-        }
-
-        // Convert AudioBuffer to WAV blob
-        function audioBufferToWavBlob(audioBuffer) {
-            const numChannels = audioBuffer.numberOfChannels;
-            const sampleRate = audioBuffer.sampleRate;
-            const length = audioBuffer.length * numChannels;
-            const buffer = new ArrayBuffer(44 + length * 2);
-            const view = new DataView(buffer);
-            
-            const writeString = (offset, str) => {
-                for (let i = 0; i < str.length; i++) {
-                    view.setUint8(offset + i, str.charCodeAt(i));
-                }
-            };
-            
-            writeString(0, 'RIFF');
-            view.setUint32(4, 36 + length * 2, true);
-            writeString(8, 'WAVE');
-            writeString(12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, numChannels, true);
-            view.setUint32(24, sampleRate, true);
-            view.setUint32(28, sampleRate * numChannels * 2, true);
-            view.setUint16(32, numChannels * 2, true);
-            view.setUint16(34, 16, true);
-            writeString(36, 'data');
-            view.setUint32(40, length * 2, true);
-            
-            let offset = 44;
-            for (let i = 0; i < audioBuffer.length; i++) {
-                for (let ch = 0; ch < numChannels; ch++) {
-                    let sample = audioBuffer.getChannelData(ch)[i];
-                    sample = Math.max(-1, Math.min(1, sample));
-                    const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-                    view.setInt16(offset, int16, true);
-                    offset += 2;
-                }
-            }
-            return new Blob([buffer], { type: 'audio/wav' });
-        }
-
-        async function transcribeAudioBlob(blob) {
-            if (!apiKey) throw new Error('Missing API key');
-            if (!blob) throw new Error('No audio available');
-
-            const CHUNK_DURATION_SEC = 600; // 10 minutes
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const arrayBuffer = await blob.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            const sampleRate = audioBuffer.sampleRate;
-            
-            const chunkSamples = CHUNK_DURATION_SEC * sampleRate;
-            const totalChunks = Math.ceil(audioBuffer.length / chunkSamples);
-            
-            setStatus(`🔊 Splitting into ${totalChunks} chunk(s) (~10min each)...`);
-            
-            let fullText = '';
-            for (let i = 0; i < totalChunks; i++) {
-                const startSample = i * chunkSamples;
-                const endSample = Math.min(startSample + chunkSamples, audioBuffer.length);
-                
-                const chunkBuffer = extractChunk(audioBuffer, startSample, endSample);
-                const chunkBlob = await audioBufferToWavBlob(chunkBuffer);
-                
-                setStatus(`📡 Transcribing chunk ${i+1}/${totalChunks} ...`);
-                progressBadge.textContent = `⏳ ${i+1}/${totalChunks}`;
-                
-                const chunkText = await callGeminiTranscription(chunkBlob, apiKey);
-                fullText += (fullText ? '\n\n' : '') + chunkText;
-                updatePreview(fullText);
-            }
-            
-            progressBadge.textContent = `✅ ${totalChunks} chunks done`;
-            return fullText;
-        }
-
-        async function callGeminiTranscription(audioBlob, key) {
-            const base64Audio = await blobToBase64(audioBlob);
-            const payload = {
-                contents: [{
-                    parts: [
-                        { text: "Transcribe the following audio precisely. Provide only the transcription text without any extra commentary." },
-                        { inline_data: { mime_type: "audio/wav", data: base64Audio } }
-                    ]
-                }]
-            };
-            
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${key}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!resp.ok) {
-                const err = await resp.json();
-                throw new Error(err.error?.message || 'Gemini API error');
-            }
-            const data = await resp.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            return text.trim();
-        }
-
-        function blobToBase64(blob) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const base64 = reader.result.split(',')[1];
-                    resolve(base64);
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        }
-
-        transcribeBtn.addEventListener('click', async () => {
-            if (isProcessing) return;
-            if (!apiKey) { setStatus('❌ Enter Gemini API key', true); return; }
-            if (!currentAudioBlob) {
-                setStatus('❌ No audio source. Choose file or fetch YouTube.', true);
-                return;
-            }
-            isProcessing = true;
-            transcribeBtn.disabled = true;
-            loadYoutubeBtn.disabled = true;
-            updatePreview(''); 
-            progressBadge.textContent = '⏳ preparing...';
-            
-            try {
-                setStatus('🔊 Decoding audio & chunking...');
-                const transcript = await transcribeAudioBlob(currentAudioBlob);
-                updatePreview(transcript);
-                setStatus(`✅ Transcription complete. ${transcript.length} characters.`);
-            } catch (e) {
-                setStatus(`❌ Transcription failed: ${e.message}`, true);
-                progressBadge.textContent = '❌ error';
-            } finally {
-                isProcessing = false;
-                transcribeBtn.disabled = false;
-                loadYoutubeBtn.disabled = false;
-            }
-        });
-
-        downloadBtn.addEventListener('click', () => {
-            if (!fullTranscript) return;
-            const blob = new Blob([fullTranscript], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${currentAudioFileName}_transcript.txt`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-        });
-
-        clearSessionBtn.addEventListener('click', () => {
-            if (isProcessing) return;
-            softReset(true);
-            apiKeyInput.value = apiKey;
-        });
-        
-        // Test function for URL extraction (can be called from console)
-        window.testYouTubeId = extractYouTubeId;
-    })();
+    // Also override setKeyBtn handler to call the patched version
+    const originalSet = setKeyBtn.click;
+  })();
 </script>
 </body>
 </html>
