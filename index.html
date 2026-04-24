@@ -512,6 +512,7 @@
           errorDetail = errJson.error?.message || JSON.stringify(errJson);
         } catch (e) {}
         throw new Error(`Gemini API error: ${errorDetail}`);
+	alert(`Gemini API error: ${errorDetail}`);
       }
 
       const data = await response.json();
