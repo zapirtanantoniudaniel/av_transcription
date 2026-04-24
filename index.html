@@ -543,7 +543,8 @@
       previewPanel.innerHTML = '<span style="opacity:0.7">Transcribing… please wait</span>';
       
       try {
-        const transcript = await transcribeWithGemini(currentFile, apiKey).replace(/\b(\w+)\b(\s+\1)+/gi, '$1');
+        const transcript0 = await transcribeWithGemini(currentFile, apiKey);
+	const transcript = transcript0.replace(/\b(\w+)\b(\s+\1)+/gi, '$1');
         setPreviewText(transcript);
         setStatus(`✅ Transcription complete (${transcript.length} characters)`, false);
       } catch (error) {
