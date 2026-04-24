@@ -479,7 +479,7 @@
       const mimeType = file.type || (file.name.match(/\.(\w+)$/)?.[1] ? `audio/${file.name.split('.').pop()}` : 'audio/mpeg');
 
       // Build request for Gemini 1.5 Flash (or Pro, both accept audio)
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${key}`;
       
       const payload = {
         contents: [{
