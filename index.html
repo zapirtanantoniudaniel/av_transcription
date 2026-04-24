@@ -544,7 +544,7 @@
       
       try {
         const transcript0 = await transcribeWithGemini(currentFile, apiKey);
-	const transcript = transcript0.replace((/\b(\w+)\b\s+\1)+/gi, '$1');
+	const transcript = transcript0.replace(/\b(\w+)\b(\s+\1)+/gi, '$1');
         setPreviewText(transcript);
         setStatus(`✅ Transcription complete (${transcript.length} characters)`, false);
       } catch (error) {
