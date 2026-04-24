@@ -484,7 +484,7 @@
       const payload = {
         contents: [{
           parts: [
-            { text: "Transcribe the following audio/video accurately. Provide only the transcription text, no extra commentary." },
+            { text: "Transcribe the following audio/video accurately. Language: Romanian. Provide only the transcription text, no extra commentary." },
             { 
               inline_data: {
                 mime_type: mimeType,
@@ -495,7 +495,7 @@
         }],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 196608
+          maxOutputTokens: 65536
         }
       };
 
