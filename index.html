@@ -484,7 +484,7 @@
       const payload = {
         contents: [{
           parts: [
-            { text: "Transcribe the following audio accurately. Detect language. Detect speed of speech. Transcribe each sentence first in a buffer in your mental memory, and just after this, adjust spelling and grammar to the speaker's language's rules; then deliver the corrected sentence's transcription. Provide only the transcription text, no extra commentary." },
+            { text: "Transcribe the following audio accurately. Detect language. Provide only the transcription text, no extra commentary." },
             { 
               inline_data: {
                 mime_type: mimeType,
@@ -494,7 +494,7 @@
           ]
         }],
         generationConfig: {
-          temperature: 0,
+          temperature: 0.1,
           maxOutputTokens: 8192
         }
       };
