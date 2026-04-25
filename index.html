@@ -3,500 +3,145 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gemini audio/video transcription</title>
+  <title>Gemini Pro/Lite Transcriber</title>
   <style>
-    * {
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-    }
-    body {
-      background: #f5f7fc;
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 1.5rem;
-    }
-    .app-container {
-      max-width: 900px;
-      width: 100%;
-      background: white;
-      border-radius: 28px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
-      padding: 2rem 2rem 2.2rem;
-      transition: all 0.2s;
-    }
-    h1 {
-      font-weight: 600;
-      font-size: 2rem;
-      letter-spacing: -0.01em;
-      margin-top: 0;
-      margin-bottom: 0.5rem;
-      color: #1e293b;
-    }
-    .subhead {
-      color: #64748b;
-      margin-bottom: 1.8rem;
-      border-left: 4px solid #3b82f6;
-      padding-left: 1rem;
-      font-weight: 400;
-    }
-    .key-section {
-      background: #f8fafc;
-      border-radius: 18px;
-      padding: 1.4rem 1.6rem;
-      margin-bottom: 2rem;
-      border: 1px solid #e2e8f0;
-    }
-    .key-label {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-      flex-wrap: wrap;
-    }
-    .key-label span {
-      font-weight: 500;
-      color: #0f172a;
-      min-width: 110px;
-    }
-    .key-input-wrapper {
-      flex: 1;
-      display: flex;
-      gap: 8px;
-    }
-    .key-input-wrapper input {
-      flex: 1;
-      padding: 0.8rem 1rem;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 40px;
-      font-size: 0.95rem;
-      background: white;
-      transition: border 0.15s;
-    }
-    .key-input-wrapper input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-    }
-    .key-input-wrapper input::placeholder {
-      color: #94a3b8;
-    }
-    .key-status {
-      font-size: 0.85rem;
-      margin-top: 8px;
-      margin-left: 0.3rem;
-      color: #475569;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .badge {
-      display: inline-block;
-      background: #e2e8f0;
-      padding: 0.2rem 0.7rem;
-      border-radius: 30px;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-    .badge.ready {
-      background: #dcfce7;
-      color: #166534;
-    }
-    .upload-area {
-      margin-bottom: 1.8rem;
-    }
-    .file-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 16px;
-      background: #ffffff;
-      border: 1.5px dashed #cbd5e1;
-      border-radius: 60px;
-      padding: 0.5rem 0.5rem 0.5rem 1.8rem;
-      transition: border 0.2s;
-    }
-    .file-row.drag-active {
-      border-color: #3b82f6;
-      background: #f0f9ff;
-    }
-    .file-info {
-      flex: 2;
-      min-width: 200px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: #1e293b;
-      font-weight: 450;
-      overflow: hidden;
-    }
-    .file-info .file-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .file-icon {
-      font-size: 1.7rem;
-    }
-    .btn-group {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .btn {
-      background: white;
-      border: 1.5px solid #e2e8f0;
-      padding: 0.7rem 1.5rem;
-      border-radius: 60px;
-      font-weight: 500;
-      font-size: 0.95rem;
-      color: #1e293b;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    .btn-primary {
-      background: #1e293b;
-      border-color: #1e293b;
-      color: white;
-      box-shadow: 0 4px 8px rgba(30,41,59,0.15);
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: #0f172a;
-      border-color: #0f172a;
-    }
-    .btn-outline-blue {
-      border-color: #3b82f6;
-      color: #2563eb;
-      background: #eff6ff;
-    }
-    .btn-outline-blue:hover:not(:disabled) {
-      background: #dbeafe;
-    }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    .transcribe-btn {
-      padding: 0.9rem 2.2rem;
-      font-size: 1.1rem;
-      margin-top: 8px;
-      width: 100%;
-      justify-content: center;
-    }
-    .status-area {
-      margin: 1.5rem 0 1rem;
-      min-height: 2.2rem;
-      font-size: 0.95rem;
-      color: #334155;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .spinner {
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2.5px solid #cbd5e1;
-      border-top-color: #1e293b;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .preview-panel {
-      background: #fafcff;
-      border-radius: 20px;
-      border: 1px solid #e2e8f0;
-      padding: 1.5rem 1.8rem;
-      margin: 1.2rem 0 1.8rem;
-      max-height: 280px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 1rem;
-      line-height: 1.5;
-      color: #0b1e33;
-      box-shadow: inset 0 2px 5px rgba(0,0,0,0.02);
-    }
-    .preview-placeholder {
-      color: #94a3b8;
-      font-style: italic;
-    }
-    .download-section {
-      display: flex;
-      justify-content: flex-end;
-    }
-    .error-message {
-      color: #b91c1c;
-      background: #fee2e2;
-      padding: 0.5rem 1.2rem;
-      border-radius: 40px;
-      font-size: 0.9rem;
-    }
-    .footnote {
-      margin-top: 1rem;
-      font-size: 0.8rem;
-      color: #64748b;
-      text-align: right;
-    }
-    .flex-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #f5f7fc; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 1.5rem; }
+    .app-container { max-width: 800px; width: 100%; background: white; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 2rem; }
+    h1 { margin-top: 0; color: #1e293b; font-size: 1.8rem; }
+    .section { background: #f8fafc; border-radius: 16px; padding: 1.2rem; margin-bottom: 1.5rem; border: 1px solid #e2e8f0; }
+    .input-group { display: flex; gap: 10px; margin-top: 8px; }
+    input[type="password"], input[type="text"] { flex: 1; padding: 0.7rem 1rem; border-radius: 50px; border: 1.5px solid #cbd5e1; outline: none; }
+    .btn { padding: 0.7rem 1.4rem; border-radius: 50px; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-primary { background: #1e293b; color: white; width: 100%; margin-top: 10px; font-size: 1.1rem; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-outline { background: white; border: 1.5px solid #cbd5e1; }
+    .mode-toggle { display: flex; align-items: center; justify-content: space-between; background: #eff6ff; padding: 12px 18px; border-radius: 12px; border: 1px solid #dbeafe; margin-bottom: 1.5rem; }
+    .toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; color: #1e40af; }
+    .preview-panel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.2rem; min-height: 150px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; }
+    .status { font-size: 0.85rem; color: #64748b; margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .error { color: #b91c1c; background: #fee2e2; padding: 8px 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; }
+    .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #e2e8f0; }
   </style>
 </head>
 <body>
+
 <div class="app-container">
   <h1>🎙️ Transcribe · Gemini</h1>
-  <div class="subhead">Upload audio/video — reuse key for multiple files</div>
-
-  <!-- API key section (in-memory only) -->
-  <div class="key-section">
-    <div class="key-label">
-      <span>🔑 Gemini API key</span>
-      <div class="key-input-wrapper">
-        <input type="password" id="apiKeyInput" placeholder="Enter your Gemini API key" autocomplete="off" spellcheck="false">
-        <button class="btn" id="setKeyBtn" type="button">Set key</button>
-      </div>
+  
+  <div class="section">
+    <label style="font-weight: 500; font-size: 0.9rem;">Gemini API Key</label>
+    <div class="input-group">
+      <input type="password" id="apiKeyInput" placeholder="Paste your API key here">
+      <button class="btn btn-outline" id="setKeyBtn">Set Key</button>
     </div>
-    <div id="keyStatus" class="key-status">
-      <span>⏳</span> No key stored in session
+    <div id="keyStatus" class="status">⚪ No key loaded</div>
+  </div>
+
+  <div class="section">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="fileName">Select an audio/video file</span>
+      <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">Browse</button>
     </div>
-    <div class="footnote" style="margin-top:6px; text-align:left;">Key is kept only in a JavaScript variable — never saved.</div>
+    <input type="file" id="fileInput" hidden accept="audio/*,video/*">
   </div>
 
-  <!-- File upload -->
-  <div class="upload-area">
-    <div class="file-row" id="dropZone">
-      <div class="file-info">
-        <span class="file-icon">📁</span>
-        <span class="file-name" id="fileNameDisplay">No file chosen</span>
-      </div>
-      <div class="btn-group">
-        <input type="file" id="fileInput" accept="audio/*,video/*,.mp3,.mp4,.m4a,.wav,.mpeg,.ogg,.mov,.webm,.flac,.aac" style="display:none;">
-        <button class="btn btn-outline-blue" id="browseBtn">📂 Browse</button>
-        <button class="btn" id="clearFileBtn" title="Clear current file">✕ Clear</button>
-      </div>
+  <div class="mode-toggle">
+    <div>
+      <div style="font-weight: 600; font-size: 0.95rem; color: #1e3a8a;">Transcription Engine</div>
+      <div style="font-size: 0.75rem; color: #64748b;" id="quotaHint">Current: High-Volume (1,000 RPD)</div>
     </div>
-    <div style="font-size:0.8rem; margin-top:8px; color:#64748b;">Supports mp3, mp4, m4a, wav, mov, webm, flac, aac …</div>
+    <label class="toggle-label">
+      <input type="checkbox" id="accuracyToggle" style="width: 18px; height: 18px;">
+      🎯 High Accuracy
+    </label>
   </div>
 
-  <!-- Transcribe action -->
-  <button class="btn btn-primary transcribe-btn" id="transcribeBtn" disabled>🎤 Transcribe</button>
+  <button class="btn btn-primary" id="transcribeBtn" disabled>🎤 Start Transcription</button>
+  
+  <div id="statusArea" class="status"></div>
+  <div id="errorArea"></div>
 
-  <!-- Status & progress -->
-  <div id="statusArea" class="status-area"></div>
-
-  <!-- Transcription preview -->
-  <div style="font-weight:500; margin: 0.8rem 0 0.2rem;">📝 Transcription preview</div>
-  <div id="previewPanel" class="preview-panel">
-    <span class="preview-placeholder">Transcription will appear here…</span>
+  <div style="margin-top: 1.5rem;">
+    <div style="font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between;">
+      <span>Result</span>
+      <button class="btn btn-outline" id="downloadBtn" disabled style="padding: 2px 10px; font-size: 0.7rem;">⬇️ Download .txt</button>
+    </div>
+    <div id="previewPanel" class="preview-panel">
+      <span style="color: #94a3b8; font-style: italic;">Your transcript will appear here...</span>
+    </div>
   </div>
-
-  <!-- Download button -->
-  <div class="download-section">
-    <button class="btn btn-outline-blue" id="downloadBtn" disabled>⬇️ Download transcript (.txt)</button>
-  </div>
-  <div id="errorMessage" style="min-height:24px; margin-top:8px;"></div>
 </div>
 
 <script type="module">
-  (function(){
-    "use strict";
+  let apiKey = null;
+  let selectedFile = null;
 
-    // ---------- STATE (in-memory only) ----------
-    let apiKey = null;                // never stored except here
-    let currentFile = null;
-    let latestTranscript = '';        // full transcript text
-    let isTranscribing = false;
+  const elements = {
+    apiKeyInput: document.getElementById('apiKeyInput'),
+    setKeyBtn: document.getElementById('setKeyBtn'),
+    keyStatus: document.getElementById('keyStatus'),
+    fileInput: document.getElementById('fileInput'),
+    fileName: document.getElementById('fileName'),
+    accuracyToggle: document.getElementById('accuracyToggle'),
+    quotaHint: document.getElementById('quotaHint'),
+    transcribeBtn: document.getElementById('transcribeBtn'),
+    statusArea: document.getElementById('statusArea'),
+    errorArea: document.getElementById('errorArea'),
+    previewPanel: document.getElementById('previewPanel'),
+    downloadBtn: document.getElementById('downloadBtn')
+  };
 
-    // DOM elements
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const setKeyBtn = document.getElementById('setKeyBtn');
-    const keyStatusDiv = document.getElementById('keyStatus');
-    const fileInput = document.getElementById('fileInput');
-    const browseBtn = document.getElementById('browseBtn');
-    const clearFileBtn = document.getElementById('clearFileBtn');
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    const transcribeBtn = document.getElementById('transcribeBtn');
-    const statusArea = document.getElementById('statusArea');
-    const previewPanel = document.getElementById('previewPanel');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const errorMsgDiv = document.getElementById('errorMessage');
-    const dropZone = document.getElementById('dropZone');
-
-    // Helper: update UI based on apiKey presence
-    function updateKeyStatusUI() {
-      if (apiKey) {
-        const masked = apiKey.length > 8 ? `${apiKey.slice(0,6)}…${apiKey.slice(-4)}` : '****';
-        keyStatusDiv.innerHTML = `<span>✅</span> Key ready · <code style="background:#eef2ff; padding:2px 6px; border-radius:20px;">${masked}</code> <span class="badge ready">session only</span>`;
-        apiKeyInput.value = ''; // clear input for privacy
-      } else {
-        keyStatusDiv.innerHTML = `<span>⏳</span> No key stored in session`;
-      }
-      updateTranscribeButtonState();
+  // UI Updates
+  elements.setKeyBtn.onclick = () => {
+    apiKey = elements.apiKeyInput.value.trim();
+    if(apiKey) {
+      elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
+      elements.apiKeyInput.value = "";
+      checkReady();
     }
+  };
 
-    // Enable transcribe only if we have both apiKey and a file
-    function updateTranscribeButtonState() {
-      transcribeBtn.disabled = !(apiKey && currentFile && !isTranscribing);
+  elements.fileInput.onchange = (e) => {
+    selectedFile = e.target.files[0];
+    if(selectedFile) {
+      elements.fileName.innerText = selectedFile.name;
+      checkReady();
     }
+  };
 
-    // Update file display
-    function updateFileDisplay() {
-      if (currentFile) {
-        fileNameDisplay.textContent = currentFile.name;
-      } else {
-        fileNameDisplay.textContent = 'No file chosen';
-        fileInput.value = ''; // clear input ref
-      }
-      updateTranscribeButtonState();
-    }
+  elements.accuracyToggle.onchange = (e) => {
+    elements.quotaHint.innerText = e.target.checked 
+      ? "Current: Pro Accuracy (Low Quota ~25 RPD)" 
+      : "Current: High-Volume (High Quota ~1,000 RPD)";
+  };
 
-    // Show temporary status / error
-    function setStatus(message, isError = false) {
-      statusArea.innerHTML = message;
-      if (isError) {
-        errorMsgDiv.innerHTML = `<span class="error-message">⚠️ ${message}</span>`;
-      } else {
-        errorMsgDiv.innerHTML = '';
-      }
-    }
+  function checkReady() {
+    elements.transcribeBtn.disabled = !(apiKey && selectedFile);
+  }
 
-    function clearStatus() {
-      statusArea.innerHTML = '';
-      errorMsgDiv.innerHTML = '';
-    }
+  // API Logic
+  async function runTranscription() {
+    const isPro = elements.accuracyToggle.checked;
+    const model = isPro ? "gemini-2.5-pro" : "gemini-3.1-flash-lite-preview";
+    
+    elements.transcribeBtn.disabled = true;
+    elements.errorArea.innerHTML = "";
+    elements.statusArea.innerHTML = `⏳ Processing with ${model}...`;
+    elements.previewPanel.innerText = "Processing... this may take a minute for large files.";
 
-    // Preview panel update
-    function setPreviewText(text) {
-      latestTranscript = text;
-      if (text && text.trim().length > 0) {
-        previewPanel.textContent = text;
-      } else {
-        previewPanel.innerHTML = '<span class="preview-placeholder">Transcription will appear here…</span>';
-      }
-      downloadBtn.disabled = !(text && text.trim().length > 0);
-    }
-
-    // ---------- Key management ----------
-    setKeyBtn.addEventListener('click', () => {
-      const newKey = apiKeyInput.value.trim();
-      if (!newKey) {
-        setStatus('Please enter an API key', true);
-        return;
-      }
-      // Basic validation: Gemini keys typically start with "AI" but not strictly enforced
-      apiKey = newKey;
-      updateKeyStatusUI();
-      clearStatus();
-      // Clear input field after setting
-      apiKeyInput.value = '';
-    });
-
-    // Optionally allow pressing Enter in key field to set key
-    apiKeyInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        setKeyBtn.click();
-      }
-    });
-
-    // ---------- File handling ----------
-    browseBtn.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => {
-      const file = fileInput.files[0];
-      if (file) {
-        currentFile = file;
-        updateFileDisplay();
-        clearStatus();
-        // Do not clear preview when changing file — but we could; keeping preview until new transcription.
-      } else {
-        currentFile = null;
-        updateFileDisplay();
-      }
-    });
-
-    clearFileBtn.addEventListener('click', () => {
-      currentFile = null;
-      fileInput.value = '';
-      updateFileDisplay();
-      clearStatus();
-      // keep preview? It's okay, but might be unrelated; we could keep it.
-    });
-
-    // Drag & drop
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-    });
-
-    dropZone.addEventListener('dragenter', () => dropZone.classList.add('drag-active'));
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
-    dropZone.addEventListener('drop', (e) => {
-      dropZone.classList.remove('drag-active');
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        const file = files[0];
-        // Check if it's audio/video (basic)
-        if (file.type.startsWith('audio/') || file.type.startsWith('video/') || /\.(mp3|mp4|m4a|wav|mpeg|ogg|mov|webm|flac|aac)$/i.test(file.name)) {
-          currentFile = file;
-          fileInput.files = files; // sync with input
-          updateFileDisplay();
-          clearStatus();
-        } else {
-          setStatus('Please drop an audio or video file.', true);
-        }
-      }
-    });
-
-    // ---------- Gemini API transcription ----------
-    async function transcribeWithGemini(file, key) {
-      // Base64 encode the file
-      const base64Promise = new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = reader.result.split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
-
-      const base64Data = await base64Promise;
-      const mimeType = file.type || (file.name.match(/\.(\w+)$/)?.[1] ? `audio/${file.name.split('.').pop()}` : 'audio/mpeg');
-
-      // Build request for Gemini 1.5 Flash (or Pro, both accept audio)
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${key}`;
+    try {
+      const base64Data = await toBase64(selectedFile);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       
       const payload = {
         contents: [{
           parts: [
-            { text: "Transcribe the following audio accurately. Tune playback speed. Provide only the transcription text, no extra commentary." },
-            { 
-              inline_data: {
-                mime_type: mimeType,
-                data: base64Data
-              }
-            }
+            { text: "Transcribe the following audio exactly. Do not summarize or explain. If there is silence, wait for the next word. If the audio ends, stop immediately. Provide only the transcription text." },
+            { inline_data: { mime_type: selectedFile.type || "audio/mpeg", data: base64Data } }
           ]
         }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 32767
-        }
+        generationConfig: { temperature: 0.2, topP: 0.95, maxOutputTokens: 32767 }
       };
 
       const response = await fetch(url, {
@@ -505,118 +150,50 @@
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        let errorDetail = `HTTP ${response.status}`;
-        try {
-          const errJson = await response.json();
-          errorDetail = errJson.error?.message || JSON.stringify(errJson);
-        } catch (e) {}
-        throw new Error(`Gemini API error: ${errorDetail}`);
-	alert(`Gemini API error: ${errorDetail}`);
-      }
-
       const data = await response.json();
-      // Extract text
-      const candidates = data.candidates;
-      if (!candidates || candidates.length === 0) {
-        throw new Error('No transcription returned');
-      }
-      const parts = candidates[0]?.content?.parts;
-      if (!parts || parts.length === 0) throw new Error('Empty response parts');
       
-      const transcript = parts.map(p => p.text).join('').trim();
-      return transcript;
+      if (!response.ok) {
+        throw new Error(data.error?.message || `HTTP Error ${response.status}`);
+      }
+
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+      // Clean up accidental loops/stutters (repeats of 30+ chars)
+      text = text.trim().replace(/(.{30,})\1+/g, '$1');
+
+      if (!text) throw new Error("The model returned an empty transcript. The audio might be silent or unsupported.");
+
+      elements.previewPanel.innerText = text;
+      elements.statusArea.innerHTML = "✅ Done!";
+      elements.downloadBtn.disabled = false;
+
+    } catch (err) {
+      elements.errorArea.innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
+      elements.statusArea.innerHTML = "❌ Failed";
+      elements.previewPanel.innerText = "Error occurred during transcription.";
+    } finally {
+      elements.transcribeBtn.disabled = false;
     }
+  }
 
-    // Transcribe button action
-    transcribeBtn.addEventListener('click', async () => {
-      if (!apiKey || !currentFile) {
-        setStatus('API key and file are required', true);
-        return;
-      }
-      if (isTranscribing) return;
+  const toBase64 = file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = error => reject(error);
+  });
 
-      isTranscribing = true;
-      transcribeBtn.disabled = true;
-      downloadBtn.disabled = true; // until new transcript
-      setStatus(`⏳ Transcribing "${currentFile.name}" …`, false);
-      previewPanel.innerHTML = '<span style="opacity:0.7">Transcribing… please wait</span>';
-      
-      try {
-        const transcript = await transcribeWithGemini(currentFile, apiKey);
-	//const transcript = transcript0.replace(/(\b(\w+)\b\s+\1)+/gi, '$1');
-        setPreviewText(transcript);
-        setStatus(`✅ Transcription complete (${transcript.length} characters)`, false);
-      } catch (error) {
-        console.error(error);
-        const errorText = error.message || 'Unknown transcription error';
-        setStatus(errorText, true);
-        previewPanel.innerHTML = `<span class="preview-placeholder">⚠️ Transcription failed. ${errorText}</span>`;
-        downloadBtn.disabled = true;
-        latestTranscript = '';
-      } finally {
-        isTranscribing = false;
-        updateTranscribeButtonState(); // re-evaluate
-      }
-    });
+  elements.transcribeBtn.onclick = runTranscription;
 
-    // Download transcript as .txt file
-    downloadBtn.addEventListener('click', () => {
-      if (!latestTranscript) {
-        setStatus('No transcript to download', true);
-        return;
-      }
-      const blob = new Blob([latestTranscript], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const baseName = currentFile ? currentFile.name.replace(/\.[^/.]+$/, '') : 'transcript';
-      a.download = `${baseName}_transcript.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
-
-    // Reset on clear or new file: but do not remove transcript preview unless new transcription made.
-    // We'll just keep existing preview – it's okay.
-    // Additional: if user sets new file, keep old preview, but transcribe will overwrite.
-    
-    // initial update
-    updateKeyStatusUI();
-    updateFileDisplay();
-    setPreviewText('');
-
-    // Ensure transcribe state on window load
-    window.addEventListener('load', () => {
-      updateTranscribeButtonState();
-    });
-
-    // If user tries to browse and cancels, fileInput change not fired, fine.
-    // Also handle resetting if key changed? Key set is only through 'set key', fine.
-    // Note: The app never shows copyright, no notice.
-
-    // For usability: double-check that the disabled logic works after key set.
-    // If they set key while file already present, button should enable.
-    // Modify updateKeyStatusUI to also update button state.
-    const originalUpdateKeyStatus = updateKeyStatusUI;
-    updateKeyStatusUI = function() {
-      if (apiKey) {
-        const masked = apiKey.length > 8 ? `${apiKey.slice(0,6)}…${apiKey.slice(-4)}` : '****';
-        keyStatusDiv.innerHTML = `<span>✅</span> Key ready · <code style="background:#eef2ff; padding:2px 6px; border-radius:20px;">${masked}</code> <span class="badge ready">session only</span>`;
-      } else {
-        keyStatusDiv.innerHTML = `<span>⏳</span> No key stored in session`;
-      }
-      updateTranscribeButtonState();
-    };
-    // re-bind to keep it updated
-    const temp = updateKeyStatusUI;
-    updateKeyStatusUI = temp;
-    updateKeyStatusUI();
-
-    // Also override setKeyBtn handler to call the patched version
-    const originalSet = setKeyBtn.click;
-  })();
+  elements.downloadBtn.onclick = () => {
+    const blob = new Blob([elements.previewPanel.innerText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transcript_${Date.now()}.txt`;
+    a.click();
+  };
 </script>
+
 </body>
 </html>
