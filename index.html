@@ -49,7 +49,7 @@
   <div class="mode-toggle">
     <div>
       <div style="font-weight: 600; font-size: 0.95rem; color: #1e3a8a;">Transcription Engine</div>
-      <div style="font-size: 0.75rem; color: #64748b;" id="quotaHint">Current: High-Volume (1,000 RPD)</div>
+      <div style="font-size: 0.75rem; color: #64748b;" id="quotaHint">Current: High-Volume (500 RPD)</div>
     </div>
     <label class="toggle-label">
       <input type="checkbox" id="accuracyToggle" style="width: 18px; height: 18px;">
@@ -112,7 +112,7 @@
 
   elements.accuracyToggle.onchange = (e) => {
     elements.quotaHint.innerText = e.target.checked 
-      ? "Current: High-Accuracy (Low Quota ~25 RPD)" 
+      ? "Current: High-Accuracy (Low Quota ~20 RPD)" 
       : "Current: High-Volume (High Quota ~500 RPD)";
   };
 
