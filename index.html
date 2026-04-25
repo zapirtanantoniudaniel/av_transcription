@@ -112,8 +112,8 @@
 
   elements.accuracyToggle.onchange = (e) => {
     elements.quotaHint.innerText = e.target.checked 
-      ? "Current: Pro Accuracy (Low Quota ~25 RPD)" 
-      : "Current: High-Volume (High Quota ~1,000 RPD)";
+      ? "Current: High-Accuracy (Low Quota ~25 RPD)" 
+      : "Current: High-Volume (High Quota ~500 RPD)";
   };
 
   function checkReady() {
@@ -123,7 +123,7 @@
   // API Logic
   async function runTranscription() {
     const isPro = elements.accuracyToggle.checked;
-    const model = isPro ? "gemini-2.5-pro" : "gemini-3.1-flash-lite-preview";
+    const model = isPro ? "gemini-2.5-flash" : "gemini-3.1-flash-lite-preview";
     
     elements.transcribeBtn.disabled = true;
     elements.errorArea.innerHTML = "";
