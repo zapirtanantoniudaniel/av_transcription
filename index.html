@@ -521,7 +521,7 @@
       if (!candidates || candidates.length === 0) {
         throw new Error('No transcription returned');
       }
-      const parts = candidates[0]?.content?.parts;
+      const parts = Set(candidates[0]?.content?.parts);
       if (!parts || parts.length === 0) throw new Error('Empty response parts');
       
       const transcript = parts.map(p => p.text).join('').trim();
