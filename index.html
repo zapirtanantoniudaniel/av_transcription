@@ -33,6 +33,7 @@
     <label style="font-weight: 500; font-size: 0.9rem;">Gemini API Key</label>
     <div class="input-group">
       <input type="password" id="apiKeyInput" placeholder="Paste your API key here">
+      <button class="btn btn-outline" id="getLeyBtn">Get Key</button>
       <button class="btn btn-outline" id="setKeyBtn">Set Key</button>
     </div>
     <div id="keyStatus" class="status">⚪ No key loaded</div>
@@ -81,6 +82,7 @@
   const elements = {
     apiKeyInput: document.getElementById('apiKeyInput'),
     setKeyBtn: document.getElementById('setKeyBtn'),
+    getKeyBtn: document.getElementById('getKeyBtn'),
     keyStatus: document.getElementById('keyStatus'),
     fileInput: document.getElementById('fileInput'),
     fileName: document.getElementById('fileName'),
@@ -95,9 +97,11 @@
 
   // UI Updates
   elements.setKeyBtn.onclick = () => {
-    if (localStorage.getItem(key)) {
-      elements.apiKeyInput.value = localStorage.getItem(key);
-    }
+    apiKey = localStorage.getItem(key);
+    elements.apiKeyInput.value = apiKey;
+  };
+
+  elements.setKeyBtn.onclick = () => {
     apiKey = elements.apiKeyInput.value.trim();
 
     if(apiKey) {
