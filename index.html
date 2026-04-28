@@ -93,6 +93,7 @@
     downloadBtn: document.getElementById('downloadBtn')
   };
 
+  localStorage.deleteItem(key);
   if (localStorage.getItem(key)) {
     apiKey = localStorage.getItem(key);
     elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
