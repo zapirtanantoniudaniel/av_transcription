@@ -100,6 +100,7 @@
   // UI Updates
   elements.getKeyBtn.onclick = () => {
     const apiKey2 = localStorage.getItem(key);
+    alert(apiKey2);
     if (apiKey2) {
       elements.apiKeyInput.innerText = apiKey2;
     }
@@ -107,7 +108,6 @@
 
     if(apiKey) {
       elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
-      localStorage.putItem(key, apiKey);
       elements.apiKeyInput.value = "";
       checkReady();
     }
