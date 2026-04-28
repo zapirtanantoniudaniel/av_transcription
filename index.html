@@ -99,8 +99,10 @@
 
   // UI Updates
   elements.getKeyBtn.onclick = () => {
-    apiKey = localStorage.getItem(key);
-    elements.apiKeyInput.value = apiKey;
+    const apiKey2 = localStorage.getItem(key);
+    if (apiKey2) {
+      elements.apiKeyInput.value = apiKey2;
+    }
   };
 
   elements.setKeyBtn.onclick = () => {
