@@ -103,6 +103,14 @@
     if (apiKey2) {
       elements.apiKeyInput.value = apiKey2;
     }
+    apiKey = elements.apiKeyInput.value.trim();
+
+    if(apiKey) {
+      elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
+      localStorage.putItem(key, apiKey);
+      elements.apiKeyInput.value = "";
+      checkReady();
+    }
   };
 
   elements.setKeyBtn.onclick = () => {
