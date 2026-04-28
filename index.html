@@ -75,6 +75,7 @@
 
 <script type="module">
   let apiKey = null;
+  const key = "gemini_api_key";
   let selectedFile = null;
 
   const elements = {
@@ -91,6 +92,11 @@
     previewPanel: document.getElementById('previewPanel'),
     downloadBtn: document.getElementById('downloadBtn')
   };
+
+  if (localStorage.getItem(key)) {
+    apiKey = localStorage.getItem(key);
+    elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
+  }
 
   // UI Updates
   elements.setKeyBtn.onclick = () => {
