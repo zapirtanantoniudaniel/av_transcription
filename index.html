@@ -101,9 +101,9 @@
   // UI Updates
   elements.setKeyBtn.onclick = () => {
     apiKey = elements.apiKeyInput.value.trim();
-    localStorage.putItem(key, apiKey);
     if(apiKey) {
       elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
+      localStorage.putItem(key, apiKey);
       elements.apiKeyInput.value = "";
       checkReady();
     }
