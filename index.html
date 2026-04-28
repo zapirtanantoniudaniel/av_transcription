@@ -100,6 +100,7 @@
   // UI Updates
   elements.getKeyBtn.onclick = () => {
     const apiKey2 = localStorage.getItem(key);
+    alert(apiKey2);
     if (apiKey2) {
       elements.apiKeyInput.innerText = apiKey2;
     }
