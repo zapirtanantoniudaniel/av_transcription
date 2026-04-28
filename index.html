@@ -101,7 +101,7 @@
   elements.getKeyBtn.onclick = () => {
     const apiKey2 = localStorage.getItem(key);
     if (apiKey2) {
-      elements.apiKeyInput.value = apiKey2;
+      elements.apiKeyInput.innerText = apiKey2;
     }
     apiKey = elements.apiKeyInput.value.trim();
 
