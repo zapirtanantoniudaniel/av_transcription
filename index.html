@@ -118,7 +118,7 @@
     if(apiKey) {
       elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
       localStorage.putItem(key, apiKey);
-      alert(getItem(key));
+      alert(localStorage.getItem(key));
       elements.apiKeyInput.value = "";
       checkReady();
     }
