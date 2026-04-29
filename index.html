@@ -153,38 +153,80 @@
 
     try {
       const base64Data = await toBase64(selectedFile);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       
-      const payload = {
-        contents: [{
-          parts: [
-            { text: "Transcribe the following audio exactly. Do not summarize or explain. If there is silence, wait for the next word. If the audio ends, stop immediately. Provide only the transcription text." },
-            { inline_data: { mime_type: selectedFile.type || "audio/mpeg", data: base64Data } }
-          ]
-        }],
-        generationConfig: { temperature: 0.2, topP: 0.95, maxOutputTokens: 32767 }
-      };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
+      // Chunking logic: split into 20-minute segments
+      const CHUNK_DURATION_SEC = 20 * 60; // 20 minutes
+      const audioCtx = new AudioContext();
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      const sampleRate = audioBuffer.sampleRate;
+      const totalSamples = audioBuffer.length;
+      const totalDurationSec = totalSamples / sampleRate;
+      const chunkSizeSamples = CHUNK_DURATION_SEC * sampleRate;
       
-      if (!response.ok) {
-        throw new Error(data.error?.message || `HTTP Error ${response.status}`);
+      const numChunks = Math.ceil(totalSamples / chunkSizeSamples);
+      let fullTranscript = "";
+
+      for (let i = 0; i < numChunks; i++) {
+        elements.statusArea.innerHTML = `⏳ Processing chunk ${i+1} of ${numChunks}...`;
+        
+        const startSample = i * chunkSizeSamples;
+        const endSample = Math.min(startSample + chunkSizeSamples, totalSamples);
+        const chunkSamples = endSample - startSample;
+        
+        // Create chunk buffer
+        const chunkBuffer = audioCtx.createBuffer(
+          audioBuffer.numberOfChannels,
+          chunkSamples,
+          sampleRate
+        );
+        
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+          const channelData = audioBuffer.getChannelData(channel).slice(startSample, endSample);
+          chunkBuffer.getChannelData(channel).set(channelData);
+        }
+        
+        // Convert chunk to WAV and base64
+        const wavData = audioBufferToWav(chunkBuffer);
+        const chunkBase64 = arrayBufferToBase64(wavData);
+        
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        
+        const payload = {
+          contents: [{
+            parts: [
+              { text: "Transcribe the following audio exactly. Do not summarize or explain. If there is silence, wait for the next word. If the audio ends, stop immediately. Provide only the transcription text." },
+              { inline_data: { mime_type: "audio/wav", data: chunkBase64 } }
+            ]
+          }],
+          generationConfig: { temperature: 0.2, topP: 0.95, maxOutputTokens: 32767 }
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error?.message || `HTTP Error ${response.status}`);
+        }
+
+        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        // Clean up accidental loops/stutters (repeats of 30+ chars)
+        text = text.trim().replace(/(.{30,})\1+/g, '$1');
+
+        fullTranscript += text + " ";
       }
 
-      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      
-      // Clean up accidental loops/stutters (repeats of 30+ chars)
-      text = text.trim().replace(/(.{30,})\1+/g, '$1');
+      audioCtx.close();
 
-      if (!text) throw new Error("The model returned an empty transcript. The audio might be silent or unsupported.");
+      if (!fullTranscript.trim()) throw new Error("The model returned an empty transcript. The audio might be silent or unsupported.");
 
-      elements.previewPanel.innerText = text;
+      elements.previewPanel.innerText = fullTranscript.trim();
       elements.statusArea.innerHTML = "✅ Done!";
       elements.downloadBtn.disabled = false;
 
@@ -203,6 +245,65 @@
     reader.onload = () => resolve(reader.result.split(',')[1]);
     reader.onerror = error => reject(error);
   });
+
+  // Helper: Convert AudioBuffer to WAV ArrayBuffer
+  function audioBufferToWav(buffer) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitsPerSample = 16;
+    
+    const samples = buffer.getChannelData(0);
+    const dataLength = samples.length * (bitsPerSample / 8);
+    const bufferLength = 44 + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    
+    // RIFF header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, 'WAVE');
+    
+    // fmt subchunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true);
+    view.setUint16(32, numChannels * bitsPerSample / 8, true);
+    view.setUint16(34, bitsPerSample, true);
+    
+    // data subchunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Write samples
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+    
+    return arrayBuffer;
+  }
+  
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+  
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
 
   elements.transcribeBtn.onclick = runTranscription;
 
