@@ -213,7 +213,7 @@
       const channel0Data = new Float32Array(audioBuffer.getChannelData(0)); // owned copy
       audioBuffer = null; // free decoded PCM (can be hundreds of MB)
 
-      const CHUNK_DURATION_SEC = 20 * 60;
+      const CHUNK_DURATION_SEC = 10 * 60;
       const chunkSizeSamples = CHUNK_DURATION_SEC * sampleRate;
       const numChunks = Math.ceil(totalSamples / chunkSizeSamples);
       let fullTranscript = "";
@@ -233,33 +233,52 @@
         // Fix 4: FileReader-based base64 avoids the huge string-concatenation spike
         const chunkBase64 = await arrayBufferToBase64(wavData);
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        const payload = {
-          contents: [{
-            parts: [
-              { text: "Transcribe the following audio exactly. Do not summarize or explain. If there is silence, wait for the next word. If the audio ends, stop immediately. Provide only the transcription text." },
-              { inline_data: { mime_type: "audio/wav", data: chunkBase64 } }
-            ]
-          }],
-          generationConfig: { temperature: 0.2, topP: 0.95, maxOutputTokens: 32767 }
-        };
+	const payload = {
+	  contents: [{
+	    parts: [
+	      { text: "Transcribe the following audio exactly. Do not summarize or explain. If there is silence, wait for the next word. If the audio ends, stop immediately. Provide only the transcription text." },
+	      { inline_data: { mime_type: "audio/wav", data: chunkBase64 } }
+	    ]
+	  }],
+	  generationConfig: { temperature: 0.2, topP: 0.95, maxOutputTokens: 32767 }
+	};
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+	const MAX_RETRIES = 6;
+	const BASE_DELAY_MS = 5000;
+	let data, response;
 
-        const data = await response.json();
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+	  response = await fetch(url, {
+	    method: 'POST',
+	    headers: { 'Content-Type': 'application/json' },
+	    body: JSON.stringify(payload)
+	  });
+	  data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error?.message || `HTTP Error ${response.status}`);
-        }
+	  if (response.ok) break;
 
-        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        text = text.trim().replace(/(.{30,})\1+/g, '$1');
-        fullTranscript += text + " ";
+	  const isRetryable = response.status === 429 || response.status === 503 || response.status === 500;
+	  if (!isRetryable || attempt === MAX_RETRIES) {
+	    throw new Error(data.error?.message || `HTTP Error ${response.status}`);
+	  }
+
+	  // Honour Retry-After header if present, otherwise exponential backoff
+	  const retryAfter = response.headers.get('Retry-After');
+	  const waitMs = retryAfter
+	    ? parseInt(retryAfter, 10) * 1000
+	    : BASE_DELAY_MS * Math.pow(2, attempt);
+
+	  const waitSec = Math.round(waitMs / 1000);
+	  elements.statusArea.innerHTML =
+	    `⏳ Chunk ${i + 1}/${numChunks} — API busy, retrying in ${waitSec}s (attempt ${attempt + 1}/${MAX_RETRIES})...`;
+	  await new Promise(r => setTimeout(r, waitMs));
+	}
+
+	let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+	text = text.trim().replace(/(.{30,})\1+/g, '$1');
+	fullTranscript += text + " ";
       }
 
       if (!fullTranscript.trim()) throw new Error("The model returned an empty transcript.");
