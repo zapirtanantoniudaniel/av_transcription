@@ -97,14 +97,13 @@
     downloadBtn: document.getElementById('downloadBtn')
   };
 
-  // UI Updates
+  // UI Updates (unchanged)
   elements.getKeyBtn.onclick = () => {
     const apiKey2 = localStorage.getItem(key);
     if (apiKey2) {
       elements.apiKeyInput.value = apiKey2;
       apiKey = apiKey2;
     }
-
     if(apiKey) {
       elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
       elements.apiKeyInput.value = "";
@@ -114,7 +113,6 @@
 
   elements.setKeyBtn.onclick = () => {
     apiKey = elements.apiKeyInput.value.trim();
-
     if(apiKey) {
       elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
       localStorage.setItem(key, apiKey);
@@ -141,7 +139,57 @@
     elements.transcribeBtn.disabled = !(apiKey && selectedFile);
   }
 
-  // API Logic
+  // Helper: Convert AudioBuffer to WAV ArrayBuffer (mono, 16-bit)
+  function audioBufferToWav(buffer) {
+    const numChannels = 1; // Force mono output
+    const sampleRate = buffer.sampleRate;
+    const bitsPerSample = 16;
+    const samples = buffer.getChannelData(0);
+    const dataLength = samples.length * (bitsPerSample / 8);
+    const bufferLength = 44 + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+    
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true);
+    view.setUint16(32, numChannels * bitsPerSample / 8, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+    return arrayBuffer;
+  }
+  
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  // Main Transcription with 20-minute chunking using low-memory OfflineAudioContext
   async function runTranscription() {
     const isPro = elements.accuracyToggle.checked;
     const model = isPro ? "gemini-2.5-flash" : "gemini-3.1-flash-lite-preview";
@@ -149,45 +197,44 @@
     elements.transcribeBtn.disabled = true;
     elements.errorArea.innerHTML = "";
     elements.statusArea.innerHTML = `⏳ Processing with ${model}...`;
-    elements.previewPanel.innerText = "Processing... this may take a minute for large files.";
+    elements.previewPanel.innerText = "Processing... this may take a while for large files.";
 
     try {
-      const base64Data = await toBase64(selectedFile);
-      
-      // Chunking logic: split into 20-minute segments
-      const CHUNK_DURATION_SEC = 20 * 60; // 20 minutes
-      const audioCtx = new AudioContext();
+      // Decode full audio but keep only one channel's data to save memory
       const arrayBuffer = await selectedFile.arrayBuffer();
+      const audioCtx = new AudioContext();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      
       const sampleRate = audioBuffer.sampleRate;
       const totalSamples = audioBuffer.length;
-      const totalDurationSec = totalSamples / sampleRate;
-      const chunkSizeSamples = CHUNK_DURATION_SEC * sampleRate;
+      const channel0Data = audioBuffer.getChannelData(0); // Float32Array reference, no copy
       
+      audioCtx.close(); // Release the original AudioContext
+      
+      const CHUNK_DURATION_SEC = 20 * 60; // 20 minutes
+      const chunkSizeSamples = CHUNK_DURATION_SEC * sampleRate;
       const numChunks = Math.ceil(totalSamples / chunkSizeSamples);
       let fullTranscript = "";
 
       for (let i = 0; i < numChunks; i++) {
-        elements.statusArea.innerHTML = `⏳ Processing chunk ${i+1} of ${numChunks}...`;
+        elements.statusArea.innerHTML = `⏳ Transcribing chunk ${i+1} of ${numChunks}...`;
         
         const startSample = i * chunkSizeSamples;
         const endSample = Math.min(startSample + chunkSizeSamples, totalSamples);
-        const chunkSamples = endSample - startSample;
+        const chunkLength = endSample - startSample;
         
-        // Create chunk buffer
-        const chunkBuffer = audioCtx.createBuffer(
-          audioBuffer.numberOfChannels,
-          chunkSamples,
-          sampleRate
-        );
+        // Use a lightweight OfflineAudioContext to render just this slice
+        const offlineCtx = new OfflineAudioContext(1, chunkLength, sampleRate);
+        const bufferSource = offlineCtx.createBufferSource();
+        const sliceBuffer = offlineCtx.createBuffer(1, chunkLength, sampleRate);
+        sliceBuffer.getChannelData(0).set(channel0Data.slice(startSample, endSample));
+        bufferSource.buffer = sliceBuffer;
+        bufferSource.connect(offlineCtx.destination);
+        bufferSource.start(0);
         
-        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-          const channelData = audioBuffer.getChannelData(channel).slice(startSample, endSample);
-          chunkBuffer.getChannelData(channel).set(channelData);
-        }
+        const renderedBuffer = await offlineCtx.startRendering();
         
-        // Convert chunk to WAV and base64
-        const wavData = audioBufferToWav(chunkBuffer);
+        const wavData = audioBufferToWav(renderedBuffer);
         const chunkBase64 = arrayBufferToBase64(wavData);
         
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -215,16 +262,11 @@
         }
 
         let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        
-        // Clean up accidental loops/stutters (repeats of 30+ chars)
         text = text.trim().replace(/(.{30,})\1+/g, '$1');
-
         fullTranscript += text + " ";
       }
 
-      audioCtx.close();
-
-      if (!fullTranscript.trim()) throw new Error("The model returned an empty transcript. The audio might be silent or unsupported.");
+      if (!fullTranscript.trim()) throw new Error("The model returned an empty transcript.");
 
       elements.previewPanel.innerText = fullTranscript.trim();
       elements.statusArea.innerHTML = "✅ Done!";
@@ -237,72 +279,6 @@
     } finally {
       elements.transcribeBtn.disabled = false;
     }
-  }
-
-  const toBase64 = file => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = error => reject(error);
-  });
-
-  // Helper: Convert AudioBuffer to WAV ArrayBuffer
-  function audioBufferToWav(buffer) {
-    const numChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const format = 1; // PCM
-    const bitsPerSample = 16;
-    
-    const samples = buffer.getChannelData(0);
-    const dataLength = samples.length * (bitsPerSample / 8);
-    const bufferLength = 44 + dataLength;
-    
-    const arrayBuffer = new ArrayBuffer(bufferLength);
-    const view = new DataView(arrayBuffer);
-    
-    // RIFF header
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + dataLength, true);
-    writeString(view, 8, 'WAVE');
-    
-    // fmt subchunk
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, format, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true);
-    view.setUint16(32, numChannels * bitsPerSample / 8, true);
-    view.setUint16(34, bitsPerSample, true);
-    
-    // data subchunk
-    writeString(view, 36, 'data');
-    view.setUint32(40, dataLength, true);
-    
-    // Write samples
-    let offset = 44;
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-      offset += 2;
-    }
-    
-    return arrayBuffer;
-  }
-  
-  function writeString(view, offset, string) {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
-    }
-  }
-  
-  function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
   }
 
   elements.transcribeBtn.onclick = runTranscription;
