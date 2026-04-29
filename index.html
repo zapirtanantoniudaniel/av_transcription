@@ -97,15 +97,14 @@
     downloadBtn: document.getElementById('downloadBtn')
   };
 
-  // UI Updates (unchanged)
   elements.getKeyBtn.onclick = () => {
     const apiKey2 = localStorage.getItem(key);
     if (apiKey2) {
       elements.apiKeyInput.value = apiKey2;
       apiKey = apiKey2;
     }
-    if(apiKey) {
-      elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
+    if (apiKey) {
+      elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0, 4)})`;
       elements.apiKeyInput.value = "";
       checkReady();
     }
@@ -113,8 +112,8 @@
 
   elements.setKeyBtn.onclick = () => {
     apiKey = elements.apiKeyInput.value.trim();
-    if(apiKey) {
-      elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0,4)})`;
+    if (apiKey) {
+      elements.keyStatus.innerHTML = `✅ Key Loaded (Starts with ${apiKey.substring(0, 4)})`;
       localStorage.setItem(key, apiKey);
       elements.apiKeyInput.value = "";
       checkReady();
@@ -123,15 +122,15 @@
 
   elements.fileInput.onchange = (e) => {
     selectedFile = e.target.files[0];
-    if(selectedFile) {
+    if (selectedFile) {
       elements.fileName.innerText = selectedFile.name;
       checkReady();
     }
   };
 
   elements.accuracyToggle.onchange = (e) => {
-    elements.quotaHint.innerText = e.target.checked 
-      ? "Current: High-Accuracy (Low Quota ~20 RPD)" 
+    elements.quotaHint.innerText = e.target.checked
+      ? "Current: High-Accuracy (Low Quota ~20 RPD)"
       : "Current: High-Volume (High Quota ~500 RPD)";
   };
 
@@ -139,38 +138,32 @@
     elements.transcribeBtn.disabled = !(apiKey && selectedFile);
   }
 
-  // Helper: Convert AudioBuffer to WAV ArrayBuffer (mono, 16-bit)
-  function audioBufferToWav(buffer) {
-    const numChannels = 1; // Force mono output
-    const sampleRate = buffer.sampleRate;
+  // Convert a Float32Array slice (mono) to a WAV ArrayBuffer (16-bit PCM)
+  function float32SliceToWav(samples, sampleRate) {
+    const numChannels = 1;
     const bitsPerSample = 16;
-    const samples = buffer.getChannelData(0);
-    const dataLength = samples.length * (bitsPerSample / 8);
-    const bufferLength = 44 + dataLength;
-    
-    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const dataLength = samples.length * 2; // 2 bytes per 16-bit sample
+    const arrayBuffer = new ArrayBuffer(44 + dataLength);
     const view = new DataView(arrayBuffer);
-    
-    function writeString(view, offset, string) {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
+
+    function writeString(offset, str) {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
     }
-    
-    writeString(view, 0, 'RIFF');
+
+    writeString(0, 'RIFF');
     view.setUint32(4, 36 + dataLength, true);
-    writeString(view, 8, 'WAVE');
-    writeString(view, 12, 'fmt ');
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true); // PCM
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true);
-    view.setUint16(32, numChannels * bitsPerSample / 8, true);
+    view.setUint32(28, sampleRate * 2, true); // byte rate
+    view.setUint16(32, 2, true); // block align
     view.setUint16(34, bitsPerSample, true);
-    writeString(view, 36, 'data');
+    writeString(36, 'data');
     view.setUint32(40, dataLength, true);
-    
+
     let offset = 44;
     for (let i = 0; i < samples.length; i++) {
       const s = Math.max(-1, Math.min(1, samples[i]));
@@ -179,66 +172,69 @@
     }
     return arrayBuffer;
   }
-  
+
+  // Memory-efficient base64 using FileReader to avoid large string concatenation
   function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([buffer]);
+      const reader = new FileReader();
+      reader.onload = () => {
+        // result is "data:<mime>;base64,<data>"
+        const result = reader.result;
+        resolve(result.substring(result.indexOf(',') + 1));
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
-  // Main Transcription with 20-minute chunking using low-memory OfflineAudioContext
   async function runTranscription() {
+    // Fixed: corrected model name for the lite option
     const isPro = elements.accuracyToggle.checked;
-    const model = isPro ? "gemini-2.5-flash" : "gemini-3.1-flash-lite-preview";
-    
+    const model = isPro ? "gemini-2.5-flash" : "gemini-2.0-flash-lite";
+
     elements.transcribeBtn.disabled = true;
     elements.errorArea.innerHTML = "";
-    elements.statusArea.innerHTML = `⏳ Processing with ${model}...`;
+    elements.statusArea.innerHTML = `⏳ Decoding audio...`;
     elements.previewPanel.innerText = "Processing... this may take a while for large files.";
 
     try {
-      // Decode full audio but keep only one channel's data to save memory
-      const arrayBuffer = await selectedFile.arrayBuffer();
+      // Fix 1: read file, decode, then immediately free the raw ArrayBuffer
+      let fileBuffer = await selectedFile.arrayBuffer();
       const audioCtx = new AudioContext();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      
+      let audioBuffer = await audioCtx.decodeAudioData(fileBuffer);
+      audioCtx.close();
+      fileBuffer = null; // free compressed file bytes
+
       const sampleRate = audioBuffer.sampleRate;
       const totalSamples = audioBuffer.length;
-      const channel0Data = audioBuffer.getChannelData(0); // Float32Array reference, no copy
-      
-      audioCtx.close(); // Release the original AudioContext
-      
-      const CHUNK_DURATION_SEC = 20 * 60; // 20 minutes
+
+      // Fix 2: copy channel data into a standalone Float32Array, then free the AudioBuffer
+      const channel0Data = new Float32Array(audioBuffer.getChannelData(0)); // owned copy
+      audioBuffer = null; // free decoded PCM (can be hundreds of MB)
+
+      const CHUNK_DURATION_SEC = 20 * 60;
       const chunkSizeSamples = CHUNK_DURATION_SEC * sampleRate;
       const numChunks = Math.ceil(totalSamples / chunkSizeSamples);
       let fullTranscript = "";
 
       for (let i = 0; i < numChunks; i++) {
-        elements.statusArea.innerHTML = `⏳ Transcribing chunk ${i+1} of ${numChunks}...`;
-        
+        elements.statusArea.innerHTML = `⏳ Transcribing chunk ${i + 1} of ${numChunks}...`;
+
         const startSample = i * chunkSizeSamples;
         const endSample = Math.min(startSample + chunkSizeSamples, totalSamples);
-        const chunkLength = endSample - startSample;
-        
-        // Use a lightweight OfflineAudioContext to render just this slice
-        const offlineCtx = new OfflineAudioContext(1, chunkLength, sampleRate);
-        const bufferSource = offlineCtx.createBufferSource();
-        const sliceBuffer = offlineCtx.createBuffer(1, chunkLength, sampleRate);
-        sliceBuffer.getChannelData(0).set(channel0Data.slice(startSample, endSample));
-        bufferSource.buffer = sliceBuffer;
-        bufferSource.connect(offlineCtx.destination);
-        bufferSource.start(0);
-        
-        const renderedBuffer = await offlineCtx.startRendering();
-        
-        const wavData = audioBufferToWav(renderedBuffer);
-        const chunkBase64 = arrayBufferToBase64(wavData);
-        
+
+        // Fix 3: subarray is a zero-copy view; no intermediate Float32Array allocation
+        const chunkView = channel0Data.subarray(startSample, endSample);
+
+        // Convert directly from the view — no OfflineAudioContext needed for mono
+        const wavData = float32SliceToWav(chunkView, sampleRate);
+
+        // Fix 4: FileReader-based base64 avoids the huge string-concatenation spike
+        const chunkBase64 = await arrayBufferToBase64(wavData);
+
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        
+
         const payload = {
           contents: [{
             parts: [
@@ -256,7 +252,7 @@
         });
 
         const data = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(data.error?.message || `HTTP Error ${response.status}`);
         }
