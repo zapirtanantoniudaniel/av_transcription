@@ -204,7 +204,7 @@
       const audioCtx = new AudioContext();
       let audioBuffer = null;
       try {
-        let audioBuffer = await audioCtx.decodeAudioData(fileBuffer);
+        audioBuffer = await audioCtx.decodeAudioData(fileBuffer);
       } catch(err) {
         alert(err);
       }
