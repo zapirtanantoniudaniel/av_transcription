@@ -202,8 +202,9 @@
       // Fix 1: read file, decode, then immediately free the raw ArrayBuffer
       let fileBuffer = await selectedFile.arrayBuffer();
       const audioCtx = new AudioContext();
+      let audioBuffer = null;
       try {
-      let audioBuffer = await audioCtx.decodeAudioData(fileBuffer);
+        let audioBuffer = await audioCtx.decodeAudioData(fileBuffer);
       } catch(err) {
         alert(err);
       }
